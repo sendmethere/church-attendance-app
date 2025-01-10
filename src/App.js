@@ -52,6 +52,10 @@ function NavbarWrapper({ children }) {
 }
 
 function App() {
+  useEffect(() => {
+    document.title = "찬양대 출석부";
+  }, []);
+
   return (
     <Router>
       <NavbarWrapper>

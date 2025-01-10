@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "찬양대 출석부",
+  "name": "찬양대 출석부 관리",
   "icons": [
     {
       "src": "favicon.ico",
