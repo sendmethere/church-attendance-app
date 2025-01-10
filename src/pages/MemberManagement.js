@@ -17,7 +17,9 @@ const MemberManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMember, setNewMember] = useState({
     name: '',
-    join_date: new Date().toISOString().split('T')[0],
+    join_date: new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
+      .toISOString()
+      .split('T')[0],
     out_date: '',
     group: '소프라노'
   });
@@ -53,7 +55,9 @@ const MemberManagement = () => {
   };
 
   const isActiveMember = (member) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
+      .toISOString()
+      .split('T')[0];
     const joinDate = member.join_date;
     const outDate = member.out_date;
 
@@ -170,7 +174,9 @@ const MemberManagement = () => {
       setIsAddModalOpen(false);
       setNewMember({
         name: '',
-        join_date: new Date().toISOString().split('T')[0],
+        join_date: new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
+          .toISOString()
+          .split('T')[0],
         out_date: '',
         group: '소프라노'
       });
@@ -229,7 +235,12 @@ const MemberManagement = () => {
             <span>비활성 멤버 표시</span>
           </label>
           <span className="text-xs sm:text-sm text-gray-600">
-            멤버 수는 오늘 날짜({new Date().toISOString().split('T')[0]}) 기준
+            멤버 수는 오늘 날짜 ({new Date().toLocaleString('ko-KR', { 
+              timeZone: 'Asia/Seoul',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            })}) 기준으로 나타납니다.
           </span>
         </div>
 
