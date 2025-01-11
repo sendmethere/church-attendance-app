@@ -599,7 +599,9 @@ const AttendanceManagement = () => {
             <thead className="bg-blue-500 text-white">
               <tr>
                 <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">이름</th>
-                <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">소속</th>
+                {groupFilter === 'all' && (
+                  <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">소속</th>
+                )}
                 <th className="px-2 py-1 sm:px-4 sm:py-2">출결</th>
                 <th className="px-2 py-1 sm:px-4 sm:py-2">사유</th>
               </tr>
@@ -608,9 +610,11 @@ const AttendanceManagement = () => {
               {filteredMembers.map((member) => (
                 <tr key={member.id} className="border-b hover:bg-gray-100">
                   <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{member.group}</td>
+                  {groupFilter === 'all' && (
+                    <td className="px-4 py-2 whitespace-nowrap">{member.group}</td>
+                  )}
                   <td className="px-4 py-2">
-                    <div className="flex justify-center space-x-2">
+                    <div className="flex justify-center space-x-1 sm:space-x-2">
                       {[
                         { status: 'present', label: '출석', shortLabel: '출' },
                         { status: 'absent', label: '결석', shortLabel: '결' },
@@ -619,7 +623,7 @@ const AttendanceManagement = () => {
                         <button
                           key={status}
                           onClick={() => updateAttendance(member.id, status, member.reason)}
-                          className={`px-3 py-1 rounded-lg shadow-md focus:outline-none focus:ring ${
+                          className={`px-2 sm:px-3 py-1 rounded-lg shadow-md focus:outline-none focus:ring text-xs sm:text-sm ${
                             member.status === status
                               ? status === 'present'
                                 ? 'bg-green-500 text-white focus:ring-green-300'
@@ -635,20 +639,20 @@ const AttendanceManagement = () => {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-2 sm:px-4 py-2 min-w-[120px] sm:min-w-[200px]">
                     <input
                       type="text"
                       value={member.reason || ''}
                       onChange={(e) => handleReasonChange(member.id, e.target.value)}
-                      className={`w-full px-3 py-1 border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300 ${
+                      className={`w-full px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300 ${
                         member.status === 'present'
                           ? 'bg-gray-100 cursor-not-allowed'
                           : 'bg-white'
                       }`}
                       placeholder={
                         member.status === 'present'
-                          ? '결석/공결에만 사유를 입력할 수 있습니다.'
-                          : '사유를 입력하세요'
+                          ? '결석/공결 시 입력'
+                          : '사유 입력'
                       }
                       disabled={member.status === 'present'}
                     />
