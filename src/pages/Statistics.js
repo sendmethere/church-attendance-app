@@ -337,12 +337,13 @@ function Statistics() {
             onClick={handleExcelDownload}
             className="hide-on-print"
           >
-            엑셀 다운로드
+            <span className="hidden sm:inline">엑셀 다운로드</span>
           </Button>
         </Space>
         <Space direction="vertical" size="middle" className="w-full mb-4">
-          <Space className="hide-on-print">
-            <Space>
+          <Space direction="vertical" size="small" className="hide-on-print w-full">
+            {/* 첫 번째 행: 연/월 선택 */}
+            <Space wrap>
               <Button
                 type={viewType === 'year' ? 'primary' : 'default'}
                 onClick={() => {
@@ -359,24 +360,29 @@ function Statistics() {
                 월간 통계
               </Button>
               <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 100 }}>
-              {Array.from({ length: 5 }, (_, i) => (
-                <Option key={2025 + i} value={2025 + i}>
-                  {2025 + i}년
-                </Option>
-              ))}
-            </Select>
-            {viewType === 'month' && (
-              <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 80 }}>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <Option key={i + 1} value={i + 1}>
-                    {i + 1}월
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Option key={2025 + i} value={2025 + i}>
+                    {2025 + i}년
                   </Option>
                 ))}
               </Select>
-            )}
+              {viewType === 'month' && (
+                <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 80 }}>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <Option key={i + 1} value={i + 1}>
+                      {i + 1}월
+                    </Option>
+                  ))}
+                </Select>
+              )}
             </Space>
-            <div className="mx-4 text-gray-200">|</div>
-            {/* 연간 통계일 때만 보이는 기간 필터 버튼 */}
+
+            {/* 구분선 추가 */}
+            {viewType === 'year' && (
+              <div className="w-full border-t border-gray-200 my-2" />
+            )}
+
+            {/* 두 번째 행: 기간 필터 버튼 */}
             {viewType === 'year' && (
               <Space wrap>
                 <Button
@@ -397,7 +403,6 @@ function Statistics() {
                 >
                   하반기
                 </Button>
-                <div className="mx-2 text-gray-300">|</div>
                 <Button
                   type={yearPeriod === 'q1' ? 'primary' : 'default'}
                   onClick={() => setYearPeriod('q1')}
@@ -424,9 +429,11 @@ function Statistics() {
                 </Button>
               </Space>
             )}
-
           </Space>
-          
+
+          {/* 구분선 추가 */}
+          <div className="w-full border-t border-gray-200 my-2" />
+
           {/* 그룹 필터 버튼 */}
           <Space wrap className="hide-on-print">
             <Button 
