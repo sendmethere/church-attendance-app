@@ -15,7 +15,7 @@ const AttendanceManagement = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGroupStatsOpen, setIsGroupStatsOpen] = useState(false);
 
-  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '피아노', '기타'];
+  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
   const isSunday = (dateString) => {
     const date = new Date(dateString);
@@ -388,6 +388,110 @@ const AttendanceManagement = () => {
     setDate(sundayDate);
   };
 
+  // 멤버 최신화 함수 추가
+  const syncMembers = async () => {
+    const formattedDate = new Date(date).toISOString().split('T')[0];
+
+    try {
+      // 1. 현재 활동 중인 멤버 목록 가져오기
+      const { data: activeMembers, error: memberError } = await supabase
+        .from('members')
+        .select('*')
+        .lte('join_date', formattedDate)
+        .or(`out_date.gt.${formattedDate},out_date.is.null`)
+        .order('group')
+        .order('name');
+
+      if (memberError) {
+        console.error('멤버 데이터 조회 실패:', memberError);
+        alert('멤버 데이터를 가져오는데 실패했습니다.');
+        return;
+      }
+
+      // 2. 현재 출석부 데이터 가져오기
+      const { data: currentAttendance, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('date', formattedDate)
+        .single();
+
+      if (attendanceError) {
+        console.error('출석 데이터 조회 실패:', attendanceError);
+        alert('출석 데이터를 가져오는데 실패했습니다.');
+        return;
+      }
+
+      // 3. 현재 출석부에 없는 멤버 찾기
+      const currentAttendanceData = typeof currentAttendance.attendance_data === 'string'
+        ? JSON.parse(currentAttendance.attendance_data)
+        : currentAttendance.attendance_data;
+
+      const existingMemberIds = new Set(currentAttendanceData.list.map(m => m.id));
+      const newMembers = activeMembers.filter(member => 
+        !existingMemberIds.has(member.id) && 
+        isDateInRange(formattedDate, member.join_date, member.out_date)
+      );
+
+      if (newMembers.length === 0) {
+        alert('추가할 새로운 멤버가 없습니다.');
+        return;
+      }
+
+      // 4. 새로운 멤버 추가
+      const updatedList = [
+        ...currentAttendanceData.list,
+        ...newMembers.map(member => ({
+          id: member.id,
+          name: member.name,
+          group: member.group,
+          status: 'present', // 기본값으로 출석 설정
+          reason: '',
+        }))
+      ];
+
+      // 5. 통계 업데이트
+      const updatedAttendanceData = {
+        ...currentAttendanceData,
+        list: updatedList,
+        attendance: updatedList.filter(item => item.status === 'present').length,
+        absent: updatedList.filter(item => item.status === 'absent').length,
+        excused: updatedList.filter(item => item.status === 'excused').length,
+      };
+
+      // 6. 데이터베이스 업데이트
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({
+          attendance_data: updatedAttendanceData,
+          updated_at: new Date().toLocaleString('en-US', { 
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          })
+        })
+        .eq('date', formattedDate);
+
+      if (updateError) {
+        console.error('업데이트 실패:', updateError);
+        alert('멤버 최신화에 실패했습니다.');
+        return;
+      }
+
+      // 7. 상태 업데이트 및 알림
+      setAttendance(updatedAttendanceData);
+      alert(`${newMembers.length}명의 멤버가 추가되었습니다.`);
+
+    } catch (error) {
+      console.error('멤버 최신화 중 오류 발생:', error);
+      alert('멤버 최신화 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 sm:mb-8">찬양대 출석 관리</h1>
@@ -421,19 +525,28 @@ const AttendanceManagement = () => {
             </button>
           </div>
 
-          {Object.keys(changes).length > 0 && (
+          <div className="flex space-x-2">
             <button
-              onClick={handleBulkUpdate}
-              disabled={isUpdating}
-              className={`px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white 
-                ${isUpdating 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-500 hover:bg-blue-600 focus:ring-2 focus:ring-blue-300'
-                } transition-colors`}
+              onClick={syncMembers}
+              className="px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white bg-green-500 hover:bg-green-600 focus:ring-2 focus:ring-green-300 transition-colors"
             >
-              {isUpdating ? '업데이트 중...' : '변경사항 저장'}
+              멤버 최신화
             </button>
-          )}
+
+            {Object.keys(changes).length > 0 && (
+              <button
+                onClick={handleBulkUpdate}
+                disabled={isUpdating}
+                className={`px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white 
+                  ${isUpdating 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600 focus:ring-2 focus:ring-blue-300'
+                  } transition-colors`}
+              >
+                {isUpdating ? '업데이트 중...' : '변경사항 저장'}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">

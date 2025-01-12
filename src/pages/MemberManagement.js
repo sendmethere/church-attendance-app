@@ -28,7 +28,7 @@ const MemberManagement = () => {
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '피아노', '기타'];
+  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
   useEffect(() => {
     fetchMembers();
