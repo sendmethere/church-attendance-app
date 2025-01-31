@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import MemberManagement from './pages/MemberManagement';
 import AttendanceManagement from './pages/AttendanceManagement';
 import Statistics from './pages/Statistics';
+import Events from './pages/Events';
+import Notice from './pages/Notice';
 import Navbar from './pages/Navbar';
 import { useLocation } from 'react-router-dom';
 import 'antd/dist/reset.css';
@@ -80,6 +82,16 @@ function App() {
           <Route path="/statistics" element={
             <ProtectedRoute>
               <Statistics />
+            </ProtectedRoute>
+          } />
+          <Route path="/events" element={
+            <ProtectedRoute>
+              <Events />
+            </ProtectedRoute>
+          } />
+          <Route path="/notice" element={
+            <ProtectedRoute>
+              <Notice />
             </ProtectedRoute>
           } />
         </Routes>

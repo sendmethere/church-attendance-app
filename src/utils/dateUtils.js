@@ -43,11 +43,8 @@ export const getDefaultSunday = () => {
  * @param {string} dateString - YYYY-MM-DD 형식의 날짜 문자열
  * @returns {boolean} - 미래 날짜 여부
  */
-export const isValidDate = (dateString) => {
-  const selectedDate = new Date(dateString);
-  selectedDate.setHours(12, 0, 0, 0);
-  const today = getKoreanNoon();
-  return selectedDate <= today;
+export const isValidDate = (date) => {
+  return date instanceof Date && !isNaN(date);
 };
 
 /**

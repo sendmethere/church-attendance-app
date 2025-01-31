@@ -17,7 +17,7 @@ function Statistics() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [yearPeriod, setYearPeriod] = useState('full'); // 'full', 'first', 'second', 'q1', 'q2', 'q3', 'q4'
-
+  const [totalStats, setTotalStats] = useState({});
 
   const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '피아노', '기타'];
 
@@ -27,12 +27,43 @@ function Statistics() {
 
   const fetchData = async () => {
     let startDate, endDate;
+    
     if (viewType === 'year') {
-      startDate = `${selectedYear}-01-01`;
-      endDate = `${selectedYear}-12-31`;
+      // 연간 조회 시 기간 설정
+      switch (yearPeriod) {
+        case 'first': // 상반기
+          startDate = `${selectedYear}-01-01`;
+          endDate = `${selectedYear}-06-30`;
+          break;
+        case 'second': // 하반기
+          startDate = `${selectedYear}-07-01`;
+          endDate = `${selectedYear}-12-31`;
+          break;
+        case 'q1': // 1분기
+          startDate = `${selectedYear}-01-01`;
+          endDate = `${selectedYear}-03-31`;
+          break;
+        case 'q2': // 2분기
+          startDate = `${selectedYear}-04-01`;
+          endDate = `${selectedYear}-06-30`;
+          break;
+        case 'q3': // 3분기
+          startDate = `${selectedYear}-07-01`;
+          endDate = `${selectedYear}-09-30`;
+          break;
+        case 'q4': // 4분기
+          startDate = `${selectedYear}-10-01`;
+          endDate = `${selectedYear}-12-31`;
+          break;
+        default: // 전체
+          startDate = `${selectedYear}-01-01`;
+          endDate = `${selectedYear}-12-31`;
+      }
     } else {
+      // 월간 조회
       startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
-      endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
+      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+      endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     }
 
     const { data: membersData } = await supabase
@@ -41,18 +72,19 @@ function Statistics() {
       .lte('join_date', endDate)
       .or(`out_date.gt.${startDate},out_date.is.null`);
 
-    const { data: attendanceData } = await supabase
-      .from('attendance')
+    const { data: eventsData } = await supabase
+      .from('events')
       .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
 
-    const processedData = (attendanceData || []).map(record => ({
+    const processedData = (eventsData || []).map(record => ({
       date: record.date,
       data: typeof record.attendance_data === 'string'
         ? JSON.parse(record.attendance_data)
         : record.attendance_data,
+      event_type: record.event_type
     }));
 
     setMembers(membersData || []);
@@ -60,21 +92,32 @@ function Statistics() {
     setTableData(generateTableData(membersData || [], processedData));
   };
 
-  const getSundays = () => {
-    if (viewType === 'year') {
-      return getSundaysInPeriod(selectedYear, yearPeriod);
-    } else {
-      return getSundaysInMonth(selectedYear, selectedMonth - 1);
-    }
+  const getEventDates = (attendanceData) => {
+    // 날짜와 이벤트 타입을 함께 추적
+    const dateEvents = attendanceData.map(record => ({
+      date: record.date,
+      event_type: record.event_type
+    }));
+
+    // 날짜별로 그룹화하여 존재하는 이벤트 타입 기록
+    const dateMap = dateEvents.reduce((acc, { date, event_type }) => {
+      if (!acc[date]) {
+        acc[date] = { date, am: false, pm: false, event: false };
+      }
+      acc[date][event_type] = true;
+      return acc;
+    }, {});
+
+    // 날짜순으로 정렬하여 반환
+    return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
   };
-  
 
   const generateTableData = (members, attendanceData) => {
-    const sundays = getSundays();
+    // getSundays() 대신 getEventDates() 사용
+    const eventDates = getEventDates(attendanceData);
 
     // 멤버 데이터를 그룹과 이름으로 정렬
     const sortedMembers = [...members].sort((a, b) => {
-      // 먼저 그룹 순서로 정렬
       const groupIndexA = groupOrder.indexOf(a.group);
       const groupIndexB = groupOrder.indexOf(b.group);
       
@@ -82,7 +125,6 @@ function Statistics() {
         return groupIndexA - groupIndexB;
       }
       
-      // 그룹이 같은 경우 이름으로 정렬
       return a.name.localeCompare(b.name, 'ko');
     });
 
@@ -97,61 +139,95 @@ function Statistics() {
         excusedCount: 0,
       };
 
-      // 선택된 기간의 일요일에 대해서만 출결 상태를 계산
-      sundays.forEach(date => {
-        const attendanceRecord = attendanceData.find(record => record.date === date);
-        if (attendanceRecord && attendanceRecord.data.list) {
-          const memberAttendance = attendanceRecord.data.list.find(item => item.id === member.id);
-          if (memberAttendance) {
-            rowData[date] = memberAttendance.status;
-            switch (memberAttendance.status) {
-              case 'present':
-                rowData.presentCount += 1;
-                break;
-              case 'absent':
-                rowData.absentCount += 1;
-                break;
-              case 'excused':
-                rowData.excusedCount += 1;
-                break;
-              default:
-                break;
-            }
-          } else {
-            rowData[date] = '';
-          }
-        } else {
-          rowData[date] = '';
-        }
+      // 각 날짜에 대해 출결 상태를 계산
+      eventDates.forEach(dateInfo => {
+        const amRecord = attendanceData.find(record => 
+          record.date === dateInfo.date && record.event_type === 'am'
+        );
+        const pmRecord = attendanceData.find(record => 
+          record.date === dateInfo.date && record.event_type === 'pm'
+        );
+        const eventRecord = attendanceData.find(record => 
+          record.date === dateInfo.date && record.event_type === 'event'
+        );
+
+        rowData[`${dateInfo.date}_am`] = getAttendanceStatus(amRecord, member.id);
+        rowData[`${dateInfo.date}_pm`] = getAttendanceStatus(pmRecord, member.id);
+        rowData[`${dateInfo.date}_event`] = getAttendanceStatus(eventRecord, member.id);
+
+        updateAttendanceCounts(rowData, amRecord, member.id);
+        updateAttendanceCounts(rowData, pmRecord, member.id);
+        updateAttendanceCounts(rowData, eventRecord, member.id);
       });
 
       return rowData;
     });
 
+    // 날짜별 통계 초기화
     const totalStats = {};
-    
-    // 각 날짜별 통계 초기화
-    sundays.forEach(date => {
-      totalStats[date] = { present: 0, absent: 0, excused: 0 };
+    eventDates.forEach(dateInfo => {
+      totalStats[dateInfo.date] = {
+        am: { present: 0, absent: 0, excused: 0 },
+        pm: { present: 0, absent: 0, excused: 0 },
+        event: { present: 0, absent: 0, excused: 0 }
+      };
     });
 
     // 실제 출석 데이터로 통계 계산
     attendanceData.forEach(record => {
       const date = record.date;
-      if (sundays.includes(date) && record.data && record.data.list) {
+      if (record.data && record.data.list) {
         record.data.list.forEach(member => {
-          // 현재 선택된 그룹의 멤버만 집계
           const memberInfo = members.find(m => m.id === member.id);
           if (memberInfo && (selectedGroup === 'all' || memberInfo.group === selectedGroup)) {
-            if (member.status === 'present') totalStats[date].present++;
-            if (member.status === 'absent') totalStats[date].absent++;
-            if (member.status === 'excused') totalStats[date].excused++;
+            const timeSlot = record.event_type;
+            if (totalStats[date] && totalStats[date][timeSlot]) {
+              if (member.status === 'present') totalStats[date][timeSlot].present++;
+              if (member.status === 'absent') totalStats[date][timeSlot].absent++;
+              if (member.status === 'excused') totalStats[date][timeSlot].excused++;
+            }
           }
         });
       }
     });
 
-    // 전체 출석 인원 행
+    setTotalStats(totalStats);
+
+    const totalRow = createTotalRow(totalStats);
+    const attendanceRateRow = createAttendanceRateRow(totalStats);
+
+    return [...tableData, totalRow, attendanceRateRow];
+  };
+
+  // 출석 상태 가져오기 헬퍼 함수
+  const getAttendanceStatus = (record, memberId) => {
+    if (!record || !record.data || !record.data.list) return '';
+    const memberAttendance = record.data.list.find(item => item.id === memberId);
+    return memberAttendance ? memberAttendance.status : '';
+  };
+
+  // 출석 카운트 업데이트 헬퍼 함수
+  const updateAttendanceCounts = (rowData, record, memberId) => {
+    if (!record || !record.data || !record.data.list) return;
+    
+    const memberAttendance = record.data.list.find(item => item.id === memberId);
+    if (memberAttendance) {
+      switch (memberAttendance.status) {
+        case 'present':
+          rowData.presentCount += 1;
+          break;
+        case 'absent':
+          rowData.absentCount += 1;
+          break;
+        case 'excused':
+          rowData.excusedCount += 1;
+          break;
+      }
+    }
+  };
+
+  // 전체 출석 인원 행 생성 함수
+  const createTotalRow = (totalStats) => {
     const totalRow = {
       key: 'total',
       name: '출/결/공',
@@ -161,14 +237,17 @@ function Statistics() {
       excusedCount: '-',
     };
 
-    // 각 일자별 데이터 추가 - 출/결/공 모두 표시
-    sundays.forEach(date => {
-      totalRow[date] = totalStats[date] 
-        ? `${totalStats[date].present}/${totalStats[date].absent}/${totalStats[date].excused}`
-        : '0/0/0';
+    // 각 날짜별 AM/PM 데이터 추가
+    Object.entries(totalStats).forEach(([date, stats]) => {
+      totalRow[`${date}_am`] = stats.am;
+      totalRow[`${date}_pm`] = stats.pm;
     });
 
-    // 출석률 행
+    return totalRow;
+  };
+
+  // 출석률 행 생성 함수
+  const createAttendanceRateRow = (totalStats) => {
     const attendanceRateRow = {
       key: 'attendanceRate',
       name: '출석율 (%)',
@@ -176,19 +255,19 @@ function Statistics() {
       presentCount: '-',
       absentCount: '-',
       excusedCount: '-',
-      ...Object.fromEntries(
-        sundays.map(date => {
-          const stats = totalStats[date];
-          const totalMembers = stats.present + stats.absent + stats.excused;
-          return [
-            date,
-            totalMembers ? ((stats.present / totalMembers) * 100).toFixed(1) : 0
-          ];
-        })
-      ),
     };
 
-    return [...tableData, totalRow, attendanceRateRow];
+    // 각 날짜별 AM/PM 출석률 계산
+    Object.entries(totalStats).forEach(([date, stats]) => {
+      ['am', 'pm'].forEach(timeSlot => {
+        const total = stats[timeSlot].present + stats[timeSlot].absent + stats[timeSlot].excused;
+        attendanceRateRow[`${date}_${timeSlot}`] = total 
+          ? ((stats[timeSlot].present / total) * 100).toFixed(1)
+          : '0';
+      });
+    });
+
+    return attendanceRateRow;
   };
 
   const columns = [
@@ -234,48 +313,87 @@ function Statistics() {
         );
       },
     },
-    ...getSundays().map(date => ({
-      title: `${parseInt(date.split('-')[1])}/${parseInt(date.split('-')[2])}`,
-      dataIndex: date,
-      key: date,
-      width: 50,
-      align: 'center',
-      render: (value, record) => {
-        if (record.key === 'total') {
-          return value || 0;
-        }
-        if (record.key === 'attendanceRate') {
-          return value ? `${value}%` : '0%';
-        }
-
-        // 출결 상태에 따른 툴팁 처리
-        const attendanceRecord = attendanceData.find(record => record.date === date);
-        let reason = '';
-        if (attendanceRecord && attendanceRecord.data.list) {
-          const memberAttendance = attendanceRecord.data.list.find(item => item.id === record.key);
-          if (memberAttendance) {
-            reason = memberAttendance.reason || '사유 미기재';
+    ...(attendanceData.length > 0 
+      ? getEventDates(attendanceData).flatMap(dateInfo => {
+          const columns = [];
+          if (dateInfo.am) {
+            columns.push({
+              title: () => (
+                <div>
+                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div className="text-xs">오전</div>
+                </div>
+              ),
+              dataIndex: `${dateInfo.date}_am`,
+              key: `${dateInfo.date}_am`,
+              width: 50,
+              align: 'center',
+              render: (value, record) => renderAttendanceCell(value, record, dateInfo.date, 'am'),
+            });
           }
-        }
-
-        let content = '';
-        switch (value) {
-          case 'present':
-            content = '○';
-            break;
-          case 'absent':
-            content = <Tooltip title={reason}>×</Tooltip>;
-            break;
-          case 'excused':
-            content = <Tooltip title={reason}>△</Tooltip>;
-            break;
-          default:
-            content = '';
-        }
-        return content;
-      },
-    })),
+          if (dateInfo.pm) {
+            columns.push({
+              title: () => (
+                <div>
+                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div className="text-xs">오후</div>
+                </div>
+              ),
+              dataIndex: `${dateInfo.date}_pm`,
+              key: `${dateInfo.date}_pm`,
+              width: 50,
+              align: 'center',
+              render: (value, record) => renderAttendanceCell(value, record, dateInfo.date, 'pm'),
+            });
+          }
+          if (dateInfo.event) {
+            columns.push({
+              title: () => (
+                <div>
+                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div className="text-xs">행사</div>
+                </div>
+              ),
+              dataIndex: `${dateInfo.date}_event`,
+              key: `${dateInfo.date}_event`,
+              width: 50,
+              align: 'center',
+              render: (value, record) => renderAttendanceCell(value, record, dateInfo.date, 'event'),
+            });
+          }
+          return columns;
+        })
+      : []
+    ),
   ];
+
+  const renderAttendanceCell = (value, record, date, timeSlot) => {
+    if (record.key === 'total') {
+      // totalStats가 undefined이거나 해당 날짜의 데이터가 없는 경우 처리
+      const stats = totalStats[date]?.[timeSlot] || { present: 0, absent: 0, excused: 0 };
+      return `${stats.present}/${stats.absent}/${stats.excused}`;
+    }
+    if (record.key === 'attendanceRate') {
+      // totalStats가 undefined이거나 해당 날짜의 데이터가 없는 경우 처리
+      const stats = totalStats[date]?.[timeSlot] || { present: 0, absent: 0, excused: 0 };
+      const total = stats.present + stats.absent + stats.excused;
+      return total ? `${((stats.present / total) * 100).toFixed(1)}%` : '0%';
+    }
+
+    let content = '';
+    switch (value) {
+      case 'present':
+        content = '○';
+        break;
+      case 'absent':
+        content = <Tooltip title={record[`${date}_${timeSlot}_reason`]}>×</Tooltip>;
+        break;
+      case 'excused':
+        content = <Tooltip title={record[`${date}_${timeSlot}_reason`]}>△</Tooltip>;
+        break;
+    }
+    return content;
+  };
 
   const getFilteredData = () => {
     return selectedGroup === 'all'
