@@ -528,7 +528,7 @@ const AttendanceManagement = () => {
     }
   };
 
-  // 멤버 최신화 함수 추가
+  // syncMembers 함수 수정
   const syncMembers = async () => {
     const formattedDate = new Date(date).toISOString().split('T')[0];
     const eventType = timeOfDay;
@@ -564,7 +564,7 @@ const AttendanceManagement = () => {
         return;
       }
 
-      // 3. 현재 출석부에 없는 멤버 찾기
+      // 3. 현재 출석부 데이터 처리
       const currentAttendanceData = typeof currentAttendance.attendance_data === 'string'
         ? JSON.parse(currentAttendance.attendance_data)
         : currentAttendance.attendance_data;
@@ -575,30 +575,77 @@ const AttendanceManagement = () => {
         return;
       }
 
-      const existingMemberIds = new Set(currentAttendanceData.list.map(m => m.id));
-      const newMembers = activeMembers.filter(member => 
-        !existingMemberIds.has(member.id) && 
-        isDateInRange(formattedDate, member.join_date, member.out_date)
+      // 4. 변경사항 확인
+      let changes = {
+        added: [],
+        updated: [],
+        removed: []
+      };
+
+      // 활성 멤버 ID 맵 생성
+      const activeMemberMap = new Map(
+        activeMembers
+          .filter(member => isDateInRange(formattedDate, member.join_date, member.out_date))
+          .map(member => [member.id, member])
       );
 
-      if (newMembers.length === 0) {
-        alert('추가할 새로운 멤버가 없습니다.');
+      // 현재 출석부 멤버 ID 맵 생성
+      const currentMemberMap = new Map(
+        currentAttendanceData.list.map(member => [member.id, member])
+      );
+
+      // 4.1 새로 추가되거나 그룹이 변경된 멤버 확인
+      activeMemberMap.forEach((activeMember, id) => {
+        const currentMember = currentMemberMap.get(id);
+        if (!currentMember) {
+          // 새로운 멤버
+          changes.added.push(activeMember);
+        } else if (currentMember.group !== activeMember.group) {
+          // 그룹이 변경된 멤버
+          changes.updated.push(activeMember);
+        }
+      });
+
+      // 4.2 제거된 멤버 확인 (더 이상 활동하지 않는 멤버)
+      currentMemberMap.forEach((currentMember, id) => {
+        if (!activeMemberMap.has(id)) {
+          changes.removed.push(currentMember);
+        }
+      });
+
+      // 변경사항이 없는 경우
+      if (changes.added.length === 0 && changes.updated.length === 0 && changes.removed.length === 0) {
+        alert('변경사항이 없습니다.');
         return;
       }
 
-      // 4. 새로운 멤버 추가
-      const updatedList = [
-        ...currentAttendanceData.list,
-        ...newMembers.map(member => ({
+      // 5. 출석부 리스트 업데이트
+      let updatedList = [...currentAttendanceData.list];
+
+      // 5.1 새로운 멤버 추가
+      changes.added.forEach(member => {
+        updatedList.push({
           id: member.id,
           name: member.name,
           group: member.group,
           status: 'present',
           reason: '',
-        }))
-      ];
+        });
+      });
 
-      // 5. 통계 업데이트
+      // 5.2 그룹 정보 업데이트
+      changes.updated.forEach(member => {
+        updatedList = updatedList.map(item =>
+          item.id === member.id
+            ? { ...item, group: member.group }
+            : item
+        );
+      });
+
+      // 5.3 비활성 멤버 제거
+      updatedList = updatedList.filter(member => !changes.removed.some(rm => rm.id === member.id));
+
+      // 6. 통계 업데이트
       const updatedAttendanceData = {
         ...currentAttendanceData,
         list: updatedList,
@@ -607,7 +654,7 @@ const AttendanceManagement = () => {
         excused: updatedList.filter(item => item.status === 'excused').length,
       };
 
-      // 6. 데이터베이스 업데이트
+      // 7. 데이터베이스 업데이트
       const { error: updateError } = await supabase
         .from('events')
         .update({
@@ -632,9 +679,14 @@ const AttendanceManagement = () => {
         return;
       }
 
-      // 7. 상태 업데이트 및 알림
+      // 8. 상태 업데이트 및 결과 알림
       setAttendance(updatedAttendanceData);
-      alert(`${newMembers.length}명의 멤버가 추가되었습니다.`);
+      alert(
+        `멤버 최신화가 완료되었습니다.\n` +
+        `- 추가된 멤버: ${changes.added.length}명\n` +
+        `- 그룹 변경: ${changes.updated.length}명\n` +
+        `- 제거된 멤버: ${changes.removed.length}명`
+      );
 
     } catch (error) {
       console.error('멤버 최신화 중 오류 발생:', error);
@@ -687,6 +739,7 @@ const AttendanceManagement = () => {
                   placeholder="일"
                 />
                 <span className="text-gray-600">일</span>
+                <span className="text-gray-600"> ({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })})</span>
               </div>
 
               <button 
@@ -834,7 +887,7 @@ const AttendanceManagement = () => {
                   onClick={() => setIsGroupStatsOpen(!isGroupStatsOpen)}
                   className="w-full flex justify-between items-center text-lg font-semibold text-gray-700 mb-4 focus:outline-none"
                 >
-                  <div><span>그룹별 통계</span><span className="text-xs text-gray-500 ml-2">({date} {timeOfDay === 'am' ? '오전' : timeOfDay === 'pm' ? '오후' : '행사'})</span></div>
+                  <div><span>그룹별 통계</span><span className="text-xs text-gray-500 ml-2">({date} ({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })}) {timeOfDay === 'am' ? '오전' : timeOfDay === 'pm' ? '오후' : '행사'})</span></div>
                   <svg
                     className={`w-6 h-6 transform transition-transform duration-200 ${
                       isGroupStatsOpen ? 'rotate-180' : ''
