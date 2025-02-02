@@ -12,6 +12,8 @@ function Events() {
     date: '',
     event_type: 'event' // 기본값을 'event'로 설정
   });
+  const [attendanceCounts, setAttendanceCounts] = useState({});
+  const [showTable, setShowTable] = useState(false); // 테이블 표시 여부를 위한 state 추가
 
   // 사용 가능한 연도 목록 가져오기
   const fetchAvailableYears = async () => {
@@ -38,6 +40,33 @@ function Events() {
     }
   };
 
+  // 각 이벤트의 출석 정보 조회
+  const fetchAttendanceCounts = async (eventId) => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('attendance_data')
+        .eq('id', eventId)
+        .single();
+
+      if (error) throw error;
+
+      // attendance_data가 null이거나 정의되지 않은 경우 기본값 반환
+      if (!data.attendance_data) {
+        return { present: 0, absent: 0, excused: 0 };
+      }
+
+      return {
+        present: data.attendance_data.attendance || 0,
+        absent: data.attendance_data.absent || 0,
+        excused: data.attendance_data.excused || 0
+      };
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      return { present: 0, absent: 0, excused: 0 };
+    }
+  };
+
   // 이벤트 목록 조회
   const fetchEvents = async () => {
     try {
@@ -49,10 +78,40 @@ function Events() {
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate)
-        .order('date', { ascending: true });
+        .order('date', { ascending: true })  // 먼저 날짜로 정렬
+        .order('event_type', { ascending: true }); // 그 다음 이벤트 타입으로 정렬
 
       if (error) throw error;
-      setEvents(data);
+
+      // event_type에 따른 정렬 우선순위 설정
+      const eventTypeOrder = {
+        'am': 0,    // 오전연습이 가장 먼저
+        'pm': 1,    // 그 다음 오후연습
+        'event': 2  // 마지막으로 행사
+      };
+
+      // 날짜가 같은 경우 event_type으로 정렬
+      const sortedData = data.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        
+        if (dateA === dateB) {
+          return eventTypeOrder[a.event_type] - eventTypeOrder[b.event_type];
+        }
+        return dateA - dateB;
+      });
+
+      // 각 이벤트의 출석 정보 조회
+      const countsPromises = sortedData.map(async (event) => {
+        const counts = await fetchAttendanceCounts(event.id);
+        return [event.id, counts];
+      });
+
+      const countsEntries = await Promise.all(countsPromises);
+      const newAttendanceCounts = Object.fromEntries(countsEntries);
+      
+      setAttendanceCounts(newAttendanceCounts);
+      setEvents(sortedData);
     } catch (error) {
       console.error('Error fetching events:', error.message);
     }
@@ -151,6 +210,28 @@ function Events() {
     }
   };
 
+  // 출석 데이터 초기화 함수
+  const handleResetAttendance = async (eventId) => {
+    if (window.confirm('정말로 이 이벤트의 출석 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+      try {
+        const { error } = await supabase
+          .from('events')
+          .update({ 
+            attendance_data: null  // attendance_data를 null로 설정
+          })
+          .eq('id', eventId);
+
+        if (error) throw error;
+        
+        await fetchEvents();
+        alert('출석 데이터가 초기화되었습니다.');
+      } catch (error) {
+        console.error('Error resetting attendance:', error);
+        alert('출석 데이터 초기화 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
   const handleEdit = (event) => {
     setEditingEvent(event);
     setFormData({
@@ -192,85 +273,135 @@ function Events() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
       <div className="w-full max-w-4xl px-2 sm:px-4">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">이벤트 관리</h1>
-          <div className="flex items-center space-x-4">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}년</option>
-              ))}
-            </select>
-            <button
-              onClick={() => {
-                setFormData({ name: '', date: `${selectedYear}-01-01` });
-                setIsModalOpen(true);
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              새 이벤트 추가
-            </button>
+        {/* 경고 메시지 박스 추가 */}
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              {/* 경고 아이콘 색상도 빨간색으로 변경 */}
+              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">
+                관리자 외에 일정을 추가/삭제하거나 초기화하지 마세요.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* 이벤트 테이블 */}
-        <div className="overflow-x-auto">
-          <table className="w-full bg-white shadow-md rounded-lg overflow-hidden text-sm sm:text-base">
-            <thead className="bg-blue-500 text-white">
-              <tr>
-                <th className="px-2 py-2 sm:px-4 text-left">이름</th>
-                <th className="px-2 py-2 sm:px-4 text-left">날짜</th>
-                <th className="px-2 py-2 sm:px-4 text-left">타입</th>
-                <th className="px-2 py-2 sm:px-4 text-left">작업</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.length > 0 ? (
-                events.map((event) => (
-                  <tr key={event.id} className="border-b hover:bg-gray-100">
-                    <td className="px-2 py-2 sm:px-4">{event.name}</td>
-                    <td className="px-2 py-2 sm:px-4">
-                      {new Date(event.date).toLocaleDateString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        weekday: 'long'
-                      })}
-                    </td>
-                    <td className="px-2 py-2 sm:px-4">
-                      <span className={`px-2 py-1 rounded-full text-sm ${getEventTypeColor(event.event_type)}`}>
-                        {getEventTypeText(event.event_type)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 sm:px-4">
-                      <button
-                        onClick={() => handleEdit(event)}
-                        className="text-blue-600 hover:text-blue-800 mr-4"
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={() => handleDelete(event.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        삭제
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="3" className="px-2 py-4 sm:px-4 text-center text-gray-500">
-                    {selectedYear}년에 등록된 이벤트가 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* 일정 열람하기 버튼 */}
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={() => setShowTable(!showTable)}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
+          >
+            {showTable ? '일정 숨기기' : '일정 열람하기'}
+          </button>
         </div>
+
+        {/* 테이블 섹션 */}
+        {showTable && (
+          <>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">이벤트 관리</h1>
+              <div className="flex items-center space-x-4">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    setFormData({ name: '', date: `${selectedYear}-01-01` });
+                    setIsModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                >
+                  새 이벤트 추가
+                </button>
+              </div>
+            </div>
+
+            {/* 이벤트 테이블 */}
+            <div className="overflow-x-auto">
+              <table className="w-full bg-white shadow-md rounded-lg overflow-hidden text-sm sm:text-base">
+                <thead className="bg-blue-500 text-white">
+                  <tr>
+                    <th className="px-2 py-2 sm:px-4 text-left">이름</th>
+                    <th className="px-2 py-2 sm:px-4 text-left">날짜</th>
+                    <th className="px-2 py-2 sm:px-4 text-left">타입</th>
+                    <th className="px-2 py-2 sm:px-4 text-center">출</th>
+                    <th className="px-2 py-2 sm:px-4 text-center">결</th>
+                    <th className="px-2 py-2 sm:px-4 text-center">공</th>
+                    <th className="px-2 py-2 sm:px-4 text-left">작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.length > 0 ? (
+                    events.map((event) => (
+                      <tr key={event.id} className="border-b hover:bg-gray-100">
+                        <td className="px-2 py-2 sm:px-4">{event.name}</td>
+                        <td className="px-2 py-2 sm:px-4">
+                          {new Date(event.date).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'long'
+                          })}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4">
+                          <span className={`px-2 py-1 rounded-full text-sm ${getEventTypeColor(event.event_type)}`}>
+                            {getEventTypeText(event.event_type)}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 sm:px-4 text-center">
+                          {attendanceCounts[event.id]?.present || 0}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4 text-center">
+                          {attendanceCounts[event.id]?.absent || 0}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4 text-center">
+                          {attendanceCounts[event.id]?.excused || 0}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4">
+                          <button
+                            onClick={() => handleEdit(event)}
+                            className="text-blue-600 hover:text-blue-800 mr-2"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDelete(event.id)}
+                            className="text-red-600 hover:text-red-800 mr-2"
+                          >
+                            삭제
+                          </button>
+                          <button
+                            onClick={() => handleResetAttendance(event.id)}
+                            className="text-yellow-600 hover:text-yellow-800"
+                          >
+                            초기화
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-2 py-4 sm:px-4 text-center text-gray-500">
+                        {selectedYear}년에 등록된 이벤트가 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 모달 */}

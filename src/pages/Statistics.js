@@ -19,7 +19,7 @@ function Statistics() {
   const [yearPeriod, setYearPeriod] = useState('full'); // 'full', 'first', 'second', 'q1', 'q2', 'q3', 'q4'
   const [totalStats, setTotalStats] = useState({});
 
-  const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '피아노', '기타'];
+  const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
   useEffect(() => {
     fetchData();
@@ -203,7 +203,11 @@ function Statistics() {
   const getAttendanceStatus = (record, memberId) => {
     if (!record || !record.data || !record.data.list) return '';
     const memberAttendance = record.data.list.find(item => item.id === memberId);
-    return memberAttendance ? memberAttendance.status : '';
+    // 상태와 함께 사유도 반환
+    return memberAttendance ? {
+      status: memberAttendance.status,
+      reason: memberAttendance.reason || ''
+    } : '';
   };
 
   // 출석 카운트 업데이트 헬퍼 함수
@@ -369,27 +373,36 @@ function Statistics() {
 
   const renderAttendanceCell = (value, record, date, timeSlot) => {
     if (record.key === 'total') {
-      // totalStats가 undefined이거나 해당 날짜의 데이터가 없는 경우 처리
       const stats = totalStats[date]?.[timeSlot] || { present: 0, absent: 0, excused: 0 };
       return `${stats.present}/${stats.absent}/${stats.excused}`;
     }
     if (record.key === 'attendanceRate') {
-      // totalStats가 undefined이거나 해당 날짜의 데이터가 없는 경우 처리
       const stats = totalStats[date]?.[timeSlot] || { present: 0, absent: 0, excused: 0 };
       const total = stats.present + stats.absent + stats.excused;
       return total ? `${((stats.present / total) * 100).toFixed(1)}%` : '0%';
     }
 
     let content = '';
-    switch (value) {
+    const status = value?.status;
+    const reason = value?.reason;
+
+    switch (status) {
       case 'present':
         content = '○';
         break;
       case 'absent':
-        content = <Tooltip title={record[`${date}_${timeSlot}_reason`]}>×</Tooltip>;
+        content = (
+          <Tooltip title={reason || '사유 없음'}>
+            ×
+          </Tooltip>
+        );
         break;
       case 'excused':
-        content = <Tooltip title={record[`${date}_${timeSlot}_reason`]}>△</Tooltip>;
+        content = (
+          <Tooltip title={reason || '사유 없음'}>
+            △
+          </Tooltip>
+        );
         break;
     }
     return content;

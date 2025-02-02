@@ -3,47 +3,72 @@ import { utils as xlsxUtils, writeFile } from 'xlsx';
 /**
  * 테이블 데이터를 엑셀 형식으로 변환
  * @param {Array} tableData - 테이블 데이터
- * @param {Array} sundays - 일요일 날짜 배열
  * @returns {Array} - 엑셀용 데이터 배열
  */
 const convertTableDataToExcel = (tableData) => {
-  return tableData.map(record => {
-    const row = {
-      그룹: record.group,
-      이름: record.name,
-      '출/결/공': record.key === 'total' || record.key === 'attendanceRate' 
-        ? ''
-        : `${record.presentCount}/${record.absentCount}/${record.excusedCount}`,
-    };
+  if (!tableData || tableData.length === 0) return [];
 
-    // 날짜 데이터 추가
-    Object.entries(record).forEach(([key, value]) => {
-      if (key.match(/^\d{4}-\d{2}-\d{2}$/)) {  // 날짜 형식 체크
-        const monthDay = `${parseInt(key.split('-')[1])}/${parseInt(key.split('-')[2])}`;
-        if (record.key === 'total') {
-          row[monthDay] = value;
-        } else if (record.key === 'attendanceRate') {
-          row[monthDay] = value ? `${value}%` : '0%';
-        } else {
-          switch (value) {
-            case 'present':
-              row[monthDay] = '○';
-              break;
-            case 'absent':
-              row[monthDay] = '×';
-              break;
-            case 'excused':
-              row[monthDay] = '△';
-              break;
-            default:
-              row[monthDay] = '';
-          }
+  // 날짜 관련 컬럼들을 찾습니다 (키가 '_am', '_pm', '_event'로 끝나는 컬럼들)
+  const dateColumns = Object.keys(tableData[0]).filter(key => 
+    key.endsWith('_am') || key.endsWith('_pm') || key.endsWith('_event')
+  );
+
+  // 엑셀 헤더 생성
+  const headers = [
+    '그룹',
+    '이름',
+    '출석',
+    '결석',
+    '공결',
+    // 날짜 컬럼들 추가
+    ...dateColumns.map(col => {
+      const [date, type] = col.split('_');
+      const [year, month, day] = date.split('-');
+      const typeText = type === 'am' ? '오전' : type === 'pm' ? '오후' : '행사';
+      return `${month}/${day} ${typeText}`;
+    })
+  ];
+
+  // 엑셀 데이터 생성
+  const excelData = tableData.map(record => {
+    const row = [
+      record.group,
+      record.name,
+      record.presentCount,
+      record.absentCount,
+      record.excusedCount,
+    ];
+
+    // 날짜별 출석 데이터 추가
+    dateColumns.forEach(col => {
+      let value = record[col];
+      
+      // total 행과 attendanceRate 행 처리
+      if (record.key === 'total' || record.key === 'attendanceRate') {
+        row.push(value);
+      } else {
+        // 일반 행의 출석 상태 변환
+        switch (value) {
+          case 'present':
+            value = '○';
+            break;
+          case 'absent':
+            value = '×';
+            break;
+          case 'excused':
+            value = '△';
+            break;
+          default:
+            value = '';
         }
+        row.push(value);
       }
     });
 
     return row;
   });
+
+  return [headers, ...excelData];
 };
 
 /**
@@ -53,13 +78,16 @@ const convertTableDataToExcel = (tableData) => {
  */
 const downloadExcel = (data, fileName) => {
   const wb = xlsxUtils.book_new();
-  const ws = xlsxUtils.json_to_sheet(data);
+  // aoa_to_sheet를 사용하여 배열 데이터를 직접 시트로 변환
+  const ws = xlsxUtils.aoa_to_sheet(data);
 
   // 열 너비 설정
   const colWidths = {
     A: 10, // 그룹
     B: 12, // 이름
-    C: 12, // 출/결/공
+    C: 8,  // 출석
+    D: 8,  // 결석
+    E: 8,  // 공결
   };
   ws['!cols'] = Object.keys(colWidths).map(key => ({ wch: colWidths[key] }));
 

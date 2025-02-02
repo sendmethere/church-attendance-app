@@ -18,8 +18,22 @@ const Notice = () => {
       4. 통계에도 오전/오후 및 행사에 대한 출석 현황을 확인할 수 있습니다. 
       
       5. 해당 일자가 아니어도 출석체크를 할 수 있습니다. 
-      
-      문의 : 엄태상(010-2232-6585)`
+      `
+    },
+    {
+      id: 2,
+      title: '2025년 2월 2일 업데이트',
+      date: '2025-02-02',
+      content: `
+      주요 업데이트 소식을 안내합니다.
+
+      1. 결석/공결 현황 박스를 누르면 결석자, 공결자 목록과 사유를 확인할 수 있습니다.
+
+      2. 통계에서 결석/공결에 마우스를 올리면 사유를 확인할 수 있습니다.
+
+      3. 일정 메뉴에서 출석 내역을 초기화할 수 있습니다. 이는 관리자 외에 수정하지 않는 것을 권고드립니다.
+
+      `
     }
   ];
 
@@ -31,7 +45,9 @@ const Notice = () => {
         </div>
 
         <div className="space-y-4">
-          {notices.map((notice) => (
+          {notices
+            .sort((a, b) => b.id - a.id)
+            .map((notice) => (
             <div 
               key={notice.id} 
               className="bg-white rounded-lg shadow-md overflow-hidden"

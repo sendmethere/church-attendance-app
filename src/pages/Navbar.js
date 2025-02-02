@@ -43,7 +43,7 @@ const Navbar = () => {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                출석 관리
+                🖍️ 출석
               </Link>
 
               <Link
@@ -54,7 +54,7 @@ const Navbar = () => {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                멤버 관리
+                👥 멤버
               </Link>
 
               <Link
@@ -65,7 +65,7 @@ const Navbar = () => {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                통계
+                📊 통계
               </Link>
 
               <Link
@@ -76,7 +76,7 @@ const Navbar = () => {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                일정
+                📅 일정
               </Link>
               <Link
                 to="/notice"
@@ -86,7 +86,7 @@ const Navbar = () => {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                사용 안내
+                💡 안내
               </Link>
             </div>
           </div>

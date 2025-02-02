@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '../supabaseClient';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/solid';
+import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { getDefaultSunday, isValidDate, getSundayFromDate } from '../utils/dateUtils';
 
 const AttendanceManagement = () => {
@@ -21,6 +21,8 @@ const AttendanceManagement = () => {
   const [availableEvents, setAvailableEvents] = useState({ am: false, pm: false, event: false });
   const [hasEvents, setHasEvents] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
+  const [showAbsentModal, setShowAbsentModal] = useState(false);
+  const [showExcusedModal, setShowExcusedModal] = useState(false);
 
   const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
@@ -694,9 +696,76 @@ const AttendanceManagement = () => {
     }
   };
 
+  // 결석/공결 리스트를 가져오는 함수
+  const getAbsentList = (status) => {
+    return filteredMembers
+      .filter(member => member.status === status)
+      .map(member => ({
+        name: member.name,
+        group: member.group,
+        reason: member.reason || '(사유 미기재)'
+      }));
+  };
+
+  // 모달 컴포넌트
+  const AttendanceModal = ({ isOpen, onClose, title, list, titleColor }) => {
+    if (!isOpen) return null;
+
+    const handleBackgroundClick = (e) => {
+      // 배경 클릭 시에만 모달 닫기 (모달 내부 클릭 시 닫히지 않도록)
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    };
+
+    return (
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+        onClick={handleBackgroundClick}  // 배경 클릭 이벤트 추가
+      >
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+          <div className="flex justify-between items-center p-4 border-b">
+            <h3 className={`text-lg font-semibold ${titleColor}`}>{title}</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-4 max-h-[60vh] overflow-y-auto">
+            {list.length > 0 ? (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">이름</th>
+                    <th className="text-left py-2">소속</th>
+                    <th className="text-left py-2">사유</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((item, index) => (
+                    <tr key={index} className="border-b last:border-b-0">
+                      <td className="py-2">{item.name}</td>
+                      <td className="py-2">{item.group}</td>
+                      <td className="py-2">{item.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-center text-gray-500 py-4">해당하는 인원이 없습니다.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 sm:mb-8">찬양대 출석 관리</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">전주교회 찬양대</h1>
+      <p className="text-gray-600 italic mb-6 text-center">내가 내 몸에 예수의 흔적을 가졌노라 (갈라디아서 6:17)</p>
 
       <div className="w-full max-w-4xl px-2 sm:px-4">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
@@ -857,7 +926,10 @@ const AttendanceManagement = () => {
                   </p>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
+              <div 
+                className="bg-white rounded-lg shadow-md p-2 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setShowAbsentModal(true)}
+              >
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">결석</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
                   <p className="text-xl sm:text-2xl font-bold text-red-600">
@@ -868,7 +940,10 @@ const AttendanceManagement = () => {
                   </p>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
+              <div 
+                className="bg-white rounded-lg shadow-md p-2 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setShowExcusedModal(true)}
+              >
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">공결</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
                   <p className="text-xl sm:text-2xl font-bold text-yellow-600">
@@ -1064,6 +1139,23 @@ const AttendanceManagement = () => {
           </>
         )}
       </div>
+
+      {/* 모달 컴포넌트 추가 */}
+      <AttendanceModal
+        isOpen={showAbsentModal}
+        onClose={() => setShowAbsentModal(false)}
+        title="결석자 명단"
+        list={getAbsentList('absent')}
+        titleColor="text-red-600"
+      />
+      
+      <AttendanceModal
+        isOpen={showExcusedModal}
+        onClose={() => setShowExcusedModal(false)}
+        title="공결자 명단"
+        list={getAbsentList('excused')}
+        titleColor="text-yellow-600"
+      />
     </div>
   );
 };
