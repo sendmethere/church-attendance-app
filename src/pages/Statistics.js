@@ -18,6 +18,7 @@ function Statistics() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [yearPeriod, setYearPeriod] = useState('full'); // 'full', 'first', 'second', 'q1', 'q2', 'q3', 'q4'
   const [totalStats, setTotalStats] = useState({});
+  const [showGroupMonthlyStats, setShowGroupMonthlyStats] = useState(false);
 
   const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
@@ -440,6 +441,134 @@ function Statistics() {
     downloadExcel(excelData, fileName);
   };
 
+  // 부서별 월별 통계 계산 함수 추가
+  const calculateGroupMonthlyStats = () => {
+    const stats = {};
+    
+    // 각 그룹별 초기화
+    groupOrder.forEach(group => {
+      stats[group] = {
+        present: 0,
+        absent: 0,
+        excused: 0,
+        attendanceRate: 0
+      };
+    });
+
+    // 각 그룹별 출결 현황 집계
+    attendanceData.forEach(record => {
+      if (record.data && record.data.list) {
+        record.data.list.forEach(attendance => {
+          const member = members.find(m => m.id === attendance.id);
+          if (member) {
+            const group = member.group;
+            if (stats[group]) {
+              switch (attendance.status) {
+                case 'present':
+                  stats[group].present++;
+                  break;
+                case 'absent':
+                  stats[group].absent++;
+                  break;
+                case 'excused':
+                  stats[group].excused++;
+                  break;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // 출석률 계산
+    Object.keys(stats).forEach(group => {
+      const total = stats[group].present + stats[group].absent + stats[group].excused;
+      stats[group].attendanceRate = total > 0 
+        ? ((stats[group].present / total) * 100).toFixed(1)
+        : 0;
+    });
+
+    return stats;
+  };
+
+  const groupMonthlyColumns = [
+    {
+      title: '부서',
+      dataIndex: 'group',
+      key: 'group',
+      width: 100,
+      align: 'center',
+    },
+    {
+      title: '출석',
+      dataIndex: 'present',
+      key: 'present',
+      width: 70,
+      align: 'center',
+    },
+    {
+      title: '결석',
+      dataIndex: 'absent',
+      key: 'absent',
+      width: 70,
+      align: 'center',
+    },
+    {
+      title: '공결',
+      dataIndex: 'excused',
+      key: 'excused',
+      width: 70,
+      align: 'center',
+    },
+    {
+      title: '출석률',
+      dataIndex: 'attendanceRate',
+      key: 'attendanceRate',
+      width: 80,
+      align: 'center',
+      render: (text) => `${text}%`,
+    },
+  ];
+
+  const getGroupMonthlyData = () => {
+    const stats = calculateGroupMonthlyStats();
+    
+    // 전체 통계 계산
+    const totalStats = {
+      present: 0,
+      absent: 0,
+      excused: 0,
+      attendanceRate: 0
+    };
+
+    // 각 그룹의 통계를 합산
+    groupOrder.forEach(group => {
+      totalStats.present += stats[group].present;
+      totalStats.absent += stats[group].absent;
+      totalStats.excused += stats[group].excused;
+    });
+
+    // 전체 출석률 계산
+    const total = totalStats.present + totalStats.absent + totalStats.excused;
+    totalStats.attendanceRate = total > 0 
+      ? ((totalStats.present / total) * 100).toFixed(1)
+      : 0;
+
+    // 그룹별 데이터와 전체 통계를 합쳐서 반환
+    return [
+      ...groupOrder.map(group => ({
+        key: group,
+        group: group,
+        ...stats[group],
+      })),
+      {
+        key: 'total',
+        group: '전체',
+        ...totalStats,
+      }
+    ];
+  };
+
   return (
     <ConfigProvider>
       <div className="p-6">
@@ -496,6 +625,7 @@ function Statistics() {
                     {2025 + i}년
                   </Option>
                 ))}
+                
               </Select>
               {viewType === 'month' && (
                 <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 80 }}>
@@ -506,6 +636,15 @@ function Statistics() {
                   ))}
                 </Select>
               )}
+              {/* 부서별 월별 통계 버튼 */}
+          <Space wrap className="hide-on-print">
+            <Button
+              type={showGroupMonthlyStats ? 'primary' : 'default'}
+              onClick={() => setShowGroupMonthlyStats(!showGroupMonthlyStats)}
+            >
+              부서별 월별 통계
+            </Button>
+          </Space>
             </Space>
 
             {/* 구분선 추가 */}
@@ -583,50 +722,71 @@ function Statistics() {
               </Button>
             ))}
           </Space>
+
         </Space>
 
-        <ConfigProvider
-          theme={{
-            components: {
-              Table: {
-                fontSize: '0.75rem',
-                padding: '3px 6px',
+        {/* 부서별 월별 통계 테이블 */}
+        {showGroupMonthlyStats ? (
+          <div className="mb-6">
+            <Title level={4} className="mb-4">
+              {selectedYear}년 {selectedMonth}월 부서별 통계
+            </Title>
+            <Table
+              columns={groupMonthlyColumns}
+              dataSource={getGroupMonthlyData()}
+              pagination={false}
+              size="small"
+              bordered
+              style={{ maxWidth: '600px' }}
+              rowClassName={(record) => record.key === 'total' ? 'font-bold bg-gray-50' : ''}
+            />
+          </div>
+        ) : (
+          // 기존 상세 통계 테이블
+          <ConfigProvider
+            theme={{
+              components: {
+                Table: {
+                  fontSize: '0.75rem',
+                  padding: '3px 6px',
+                },
               },
-            },
-          }}
-        >
-          <Table
-            columns={columns.filter(col => 
-              selectedGroup === 'all' || 
-              col.dataIndex === 'name' || 
-              col.dataIndex === 'summary' || 
-              !['group'].includes(col.dataIndex)
-            )}
-            dataSource={tableData.filter(record => 
-              selectedGroup === 'all' || 
-              record.group === selectedGroup || 
-              record.key === 'total' || 
-              record.key === 'attendanceRate'
-            )}
-            scroll={{ 
-              x: viewType === 'year' ? true : 'max-content',
-              scrollToFirstRowOnChange: true 
             }}
-            pagination={false}
-            size="small"
-            bordered
-            rowClassName={(record) => {
-              if (record.key === 'total') return 'total-row';
-              if (record.key === 'attendanceRate') return 'rate-row';
-              return '';
-            }}
-            style={{ 
-              width: viewType === 'month' ? 'auto' : '100%',
-              maxWidth: viewType === 'month' ? 'fit-content' : 'none',
-              cursor: 'pointer',
-            }}
-          />
-        </ConfigProvider>
+          >
+            <Table
+              columns={columns.filter(col => 
+                selectedGroup === 'all' || 
+                col.dataIndex === 'name' || 
+                col.dataIndex === 'summary' || 
+                !['group'].includes(col.dataIndex)
+              )}
+              dataSource={tableData.filter(record => 
+                selectedGroup === 'all' || 
+                record.group === selectedGroup || 
+                record.key === 'total' || 
+                record.key === 'attendanceRate'
+              )}
+              scroll={{ 
+                x: viewType === 'year' ? true : 'max-content',
+                scrollToFirstRowOnChange: true 
+              }}
+              pagination={false}
+              size="small"
+              bordered
+              rowClassName={(record) => {
+                if (record.key === 'total') return 'total-row';
+                if (record.key === 'attendanceRate') return 'rate-row';
+                return '';
+              }}
+              style={{ 
+                width: viewType === 'month' ? 'auto' : '100%',
+                maxWidth: viewType === 'month' ? 'fit-content' : 'none',
+                cursor: 'pointer',
+              }}
+            />
+          </ConfigProvider>
+        )}
+
         <div className="mt-4">
           <Text>○: 출석 / ×: 결석 / △: 공결</Text>
         </div>

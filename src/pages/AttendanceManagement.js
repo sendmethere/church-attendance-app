@@ -17,7 +17,7 @@ const AttendanceManagement = () => {
   const [yearInput, setYearInput] = useState(() => new Date(getDefaultSunday()).getFullYear());
   const [monthInput, setMonthInput] = useState(() => new Date(getDefaultSunday()).getMonth() + 1);
   const [dayInput, setDayInput] = useState(() => new Date(getDefaultSunday()).getDate());
-  const [timeOfDay, setTimeOfDay] = useState('am'); // 'am' or 'pm' or 'event'
+  const [timeOfDay, setTimeOfDay] = useState(''); // 'am' or 'pm' or 'event'
   const [availableEvents, setAvailableEvents] = useState({ am: false, pm: false, event: false });
   const [hasEvents, setHasEvents] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
@@ -406,46 +406,50 @@ const AttendanceManagement = () => {
   }, []);
 
   // moveToNextSunday 함수 수정
-  const moveToNextSunday = () => {
+  const moveToNextSunday = async () => {
     const currentIndex = availableDates.indexOf(date);
     if (currentIndex < availableDates.length - 1) {
       const nextDate = availableDates[currentIndex + 1];
-      setDate(nextDate);
       
-      // input 값도 업데이트
+      // input 값 업데이트
       const localDate = new Date(nextDate);
       setYearInput(localDate.getFullYear());
       setMonthInput(localDate.getMonth() + 1);
       setDayInput(localDate.getDate());
       
-      // 해당 날짜의 일정 타입 확인 및 설정
-      checkAndSetEventType(nextDate);
+      // 일정 타입 확인 및 설정을 기다림
+      await checkAndSetEventType(nextDate);
+      
+      // 타입 설정이 완료된 후 날짜 설정
+      setDate(nextDate);
     }
   };
 
   // moveToPreviousSunday 함수 수정
-  const moveToPreviousSunday = () => {
+  const moveToPreviousSunday = async () => {
     const currentIndex = availableDates.indexOf(date);
     if (currentIndex > 0) {
       const previousDate = availableDates[currentIndex - 1];
-      setDate(previousDate);
       
-      // input 값도 업데이트
+      // input 값 업데이트
       const localDate = new Date(previousDate);
       setYearInput(localDate.getFullYear());
       setMonthInput(localDate.getMonth() + 1);
       setDayInput(localDate.getDate());
       
-      // 해당 날짜의 일정 타입 확인 및 설정
-      checkAndSetEventType(previousDate);
+      // 일정 타입 확인 및 설정을 기다림
+      await checkAndSetEventType(previousDate);
+      
+      // 타입 설정이 완료된 후 날짜 설정
+      setDate(previousDate);
     }
   };
 
   // handleDateSearch 함수 수정
-  const handleDateSearch = () => {
+  const handleDateSearch = async () => {  // async 추가
     // 입력값을 숫자로 변환
     const year = parseInt(yearInput);
-    const month = parseInt(monthInput) - 1; // JavaScript의 월은 0부터 시작
+    const month = parseInt(monthInput) - 1;
     const day = parseInt(dayInput);
     
     // 날짜 유효성 기본 체크
@@ -464,10 +468,8 @@ const AttendanceManagement = () => {
       return;
     }
 
-    // 입력된 날짜를 ISO 형식으로 변환
     const formattedSearchDate = searchDate.toISOString().split('T')[0];
 
-    // availableDates에서 입력된 날짜와 같거나 작은 날짜 중 가장 큰 날짜 찾기
     const targetDate = availableDates.reduce((closest, date) => {
       if (date <= formattedSearchDate && (!closest || date > closest)) {
         return date;
@@ -480,52 +482,56 @@ const AttendanceManagement = () => {
       return;
     }
 
-    // 날짜 설정
-    setDate(targetDate);
-    
-    // input 값도 업데이트 (현지 시간 기준)
+    // input 값 업데이트
     const localDate = new Date(targetDate);
     setYearInput(localDate.getFullYear());
     setMonthInput(localDate.getMonth() + 1);
     setDayInput(localDate.getDate());
     
-    // 해당 날짜의 일정 타입 확인 및 설정
-    checkAndSetEventType(targetDate);
+    // 일정 타입 확인 및 설정을 기다림
+    await checkAndSetEventType(targetDate);
+    
+    // 타입 설정이 완료된 후 날짜 설정
+    setDate(targetDate);
   };
 
-  // 일정 타입을 확인하고 설정하는 함수 수정
+  // checkAndSetEventType 함수 수정
   const checkAndSetEventType = async (targetDate) => {
     const { data: events } = await supabase
       .from('events')
-      .select('*')  // event_type만이 아닌 전체 데이터를 가져옴
+      .select('*')
       .eq('date', targetDate);
 
     if (events && events.length > 0) {
-      // 각 타입별 이벤트 존재 여부 확인
       const hasValidAM = events.some(event => event.event_type === 'am');
       const hasValidPM = events.some(event => event.event_type === 'pm');
       const hasValidEvent = events.some(event => event.event_type === 'event');
 
-      // 버튼 상태 업데이트
       setAvailableEvents({
         am: hasValidAM,
         pm: hasValidPM,
         event: hasValidEvent
       });
 
-      // 존재하는 첫 번째 일정 타입으로 설정
-      if (hasValidAM) setTimeOfDay('am');
-      else if (hasValidPM) setTimeOfDay('pm');
-      else if (hasValidEvent) setTimeOfDay('event');
+      // 현재 선택된 timeOfDay가 유효하지 않은 경우에만 다른 타입으로 변경
+      const currentTimeOfDay = timeOfDay;
+      let newTimeOfDay = currentTimeOfDay;
 
+      if (!events.some(event => event.event_type === currentTimeOfDay)) {
+        if (hasValidAM) newTimeOfDay = 'am';
+        else if (hasValidPM) newTimeOfDay = 'pm';
+        else if (hasValidEvent) newTimeOfDay = 'event';
+      }
+
+      setTimeOfDay(newTimeOfDay);
       setHasEvents(hasValidAM || hasValidPM || hasValidEvent);
     } else {
-      // 일정이 없는 경우 모든 버튼 비활성화
       setAvailableEvents({
         am: false,
         pm: false,
         event: false
       });
+      setTimeOfDay('');
       setHasEvents(false);
     }
   };
