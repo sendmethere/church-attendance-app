@@ -17,7 +17,7 @@ const AttendanceManagement = () => {
   const [yearInput, setYearInput] = useState(() => new Date(getDefaultSunday()).getFullYear());
   const [monthInput, setMonthInput] = useState(() => new Date(getDefaultSunday()).getMonth() + 1);
   const [dayInput, setDayInput] = useState(() => new Date(getDefaultSunday()).getDate());
-  const [timeOfDay, setTimeOfDay] = useState(''); // 'am' or 'pm' or 'event'
+  const [timeOfDay, setTimeOfDay] = useState('am'); // 'am' or 'pm' or 'event'
   const [availableEvents, setAvailableEvents] = useState({ am: false, pm: false, event: false });
   const [hasEvents, setHasEvents] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
