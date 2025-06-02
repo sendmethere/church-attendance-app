@@ -129,7 +129,9 @@ const AttendanceManagement = () => {
     const formattedDate = new Date(date).toISOString().split('T')[0];
     const eventType = timeOfDay;
 
-    // 해당 날짜에 활동 중인 멤버만 가져오기
+    // 1. 해당 날짜에 활동 중인 멤버 목록 조회
+    // - join_date가 현재 날짜보다 이전이고
+    // - out_date가 현재 날짜보다 이후이거나 null인 멤버들을 가져옴
     const { data: memberData, error: memberError } = await supabase
       .from('members')
       .select('*')
@@ -144,25 +146,52 @@ const AttendanceManagement = () => {
       return;
     }
 
+    // 2. 실제로 해당 날짜에 활동 중인 멤버만 필터링
+    // - join_date와 out_date 사이에 현재 날짜가 있는 멤버만 선택
     const activeMembers = memberData.filter(member => 
       isDateInRange(formattedDate, member.join_date, member.out_date)
     );
 
+    // 3. 기본 출석 데이터 구조 생성
+    // - 모든 멤버의 초기 상태를 'present'(출석)로 설정
+    // - 출석/결석/공결 카운트 초기화
     const defaultData = {
-      attendance: activeMembers.length,
-      absent: 0,
-      excused: 0,
+      attendance: activeMembers.length,  // 전체 인원 수
+      absent: 0,                         // 결석 인원 수
+      excused: 0,                        // 공결 인원 수
       list: activeMembers.map((member) => ({
         id: member.id,
         name: member.name,
         group: member.group,
         tags: member.tags || [],
-        status: 'present',
-        reason: '',
+        status: 'present',               // 초기 상태는 모두 출석
+        reason: '',                      // 사유는 빈 문자열로 초기화
       })),
     };
 
-    // 기존 레코드 업데이트
+    /* 결석을 기본값으로 변경하려면:
+     * 1. status를 'absent'로 변경
+     * 2. attendance와 absent 카운트를 반대로 설정
+     * 3. reason에 기본 사유를 설정할 수도 있음
+     * 
+     * const defaultData = {
+     *   attendance: 0,                     // 출석 인원 수 (초기값 0)
+     *   absent: activeMembers.length,      // 결석 인원 수 (전체 인원)
+     *   excused: 0,                        // 공결 인원 수
+     *   list: activeMembers.map((member) => ({
+     *     id: member.id,
+     *     name: member.name,
+     *     group: member.group,
+     *     tags: member.tags || [],
+     *     status: 'absent',                // 초기 상태를 결석으로 변경
+     *     reason: '미출석',                 // 기본 사유 설정 (선택사항)
+     *   })),
+     * };
+     */
+
+    // 4. 데이터베이스에 출석 데이터 업데이트
+    // - 해당 날짜와 이벤트 타입(오전/오후/행사)에 맞는 레코드 업데이트
+    // - updated_at 필드에 현재 시간(한국 시간) 기록
     const { error: updateError } = await supabase
       .from('events')
       .update({
@@ -187,6 +216,10 @@ const AttendanceManagement = () => {
       return;
     }
 
+    // 5. 상태 업데이트
+    // - 출석 데이터 상태 업데이트
+    // - 이벤트 존재 여부 플래그 설정
+    // - 해당 이벤트 타입의 가용성 플래그 설정
     setAttendance(defaultData);
     setHasEvents(true);
     setAvailableEvents(prev => ({
@@ -932,7 +965,7 @@ const AttendanceManagement = () => {
                 className={`px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white 
                   ${isUpdating 
                     ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-500 hover:bg-blue-600 focus:ring-2 focus:ring-blue-300'
+                    : 'bg-[#2cb67d] hover:bg-[#2cb67d] focus:ring-2 focus:ring-blue-300'
                   } transition-colors`}
               >
                 {isUpdating ? '업데이트 중...' : '변경사항 저장'}
@@ -997,7 +1030,7 @@ const AttendanceManagement = () => {
               </div>
             </div>
 
-            {groupFilter === 'all' && (
+            {groupFilter === 'all' && tagFilter === 'all' && (
               <div className="bg-white rounded-lg shadow-md p-4 mb-6">
                 <button
                   onClick={() => setIsGroupStatsOpen(!isGroupStatsOpen)}
@@ -1168,7 +1201,7 @@ const AttendanceManagement = () => {
                 <thead className="bg-black text-white">
                   <tr>
                     <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">이름</th>
-                    <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">소속/태그</th>
+                    <th className={`${groupFilter !== 'all' || tagFilter !== 'all' ? 'hidden sm:table-cell' : ''} px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap`}>소속/태그</th>
                     <th className="px-2 py-1 sm:px-4 sm:py-2">출결</th>
                     <th className="px-2 py-1 sm:px-4 sm:py-2">사유</th>
                   </tr>
@@ -1177,7 +1210,7 @@ const AttendanceManagement = () => {
                   {filteredMembers.map((member) => (
                     <tr key={member.id} className="border-b hover:bg-gray-100">
                       <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
+                      <td className={`${groupFilter !== 'all' || tagFilter !== 'all' ? 'hidden sm:table-cell' : ''} px-4 py-2 whitespace-nowrap`}>
                         <div className="flex flex-wrap gap-1">
                           <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                             {member.group}
@@ -1241,6 +1274,22 @@ const AttendanceManagement = () => {
                 </tbody>
               </table>
             </div>
+
+            {Object.keys(changes).length > 0 && (
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={handleBulkUpdate}
+                  disabled={isUpdating}
+                  className={`px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white 
+                    ${isUpdating 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-[#2cb67d] hover:bg-[#2cb67d] focus:ring-2 focus:ring-blue-300'
+                    } transition-colors`}
+                >
+                  {isUpdating ? '업데이트 중...' : '변경사항 저장'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

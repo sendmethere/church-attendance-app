@@ -23,8 +23,9 @@ const MemberManagement = () => {
     join_date: new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
       .toISOString()
       .split('T')[0],
-    out_date: '',
-    group: '소프라노'
+    out_date: '2099-12-31',
+    group: '소프라노',
+    tags: []
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -179,7 +180,8 @@ const MemberManagement = () => {
           name: newMember.name,
           join_date: newMember.join_date,
           out_date: newMember.out_date || null,
-          group: newMember.group
+          group: newMember.group,
+          tags: newMember.tags
         }])
         .select();
 
@@ -192,8 +194,9 @@ const MemberManagement = () => {
         join_date: new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
           .toISOString()
           .split('T')[0],
-        out_date: '',
-        group: '소프라노'
+        out_date: '2099-12-31',
+        group: '소프라노',
+        tags: []
       });
     } catch (error) {
       console.error('Error adding member:', error);
@@ -365,6 +368,16 @@ const MemberManagement = () => {
                 ))}
               </div>
             </div>
+
+            <div className="flex flex-col sm:flex-row justify-end items-center mb-4">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="my-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-black text-white text-sm sm:text-base rounded-lg focus:ring-2 focus:ring-black focus:ring-opacity-50"
+            >
+              멤버 추가
+            </button>
+          </div>
+
           </div>
 
           {/* 멤버 테이블 */}
@@ -462,13 +475,13 @@ const MemberManagement = () => {
               </tbody>
             </table>
           </div>
-        <div className="flex flex-col sm:flex-row justify-end items-center my-4 space-y-2 sm:space-y-0">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-500 text-white text-sm sm:text-base rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-          >
-            멤버 추가
-          </button>
+          <div className="flex flex-col sm:flex-row justify-end items-center mb-4">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="my-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-black text-white text-sm sm:text-base rounded-lg focus:ring-2 focus:ring-black focus:ring-opacity-50"
+            >
+              멤버 추가
+            </button>
           </div>
         </div>
       </div>
@@ -586,20 +599,47 @@ const MemberManagement = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   그룹
                 </label>
-                <select
-                  value={newMember.group}
-                  onChange={(e) => setNewMember(prev => ({ 
-                    ...prev, 
-                    group: e.target.value 
-                  }))}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-300"
-                >
+                <div className="flex flex-wrap gap-2">
                   {groups.map((group) => (
-                    <option key={group} value={group}>
+                    <button
+                      key={group}
+                      onClick={() => setNewMember(prev => ({ ...prev, group }))}
+                      className={`px-2 py-1 rounded-lg text-xs transition-colors ${
+                        newMember.group === group
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                      }`}
+                    >
                       {group}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  태그
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        const currentTags = newMember.tags || [];
+                        const newTags = currentTags.includes(tag)
+                          ? currentTags.filter(t => t !== tag)
+                          : [...currentTags, tag];
+                        setNewMember(prev => ({ ...prev, tags: newTags }));
+                      }}
+                      className={`px-2 py-1 rounded-lg text-xs transition-colors ${
+                        newMember.tags?.includes(tag)
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

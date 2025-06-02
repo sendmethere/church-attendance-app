@@ -294,7 +294,7 @@ function Events() {
         <div className="flex justify-center mb-6">
           <button
             onClick={() => setShowTable(!showTable)}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
           >
             {showTable ? '일정 숨기기' : '일정 열람하기'}
           </button>
@@ -320,7 +320,7 @@ function Events() {
                     setFormData({ name: '', date: `${selectedYear}-01-01` });
                     setIsModalOpen(true);
                   }}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-opacity-50"
                 >
                   새 이벤트 추가
                 </button>
@@ -330,7 +330,7 @@ function Events() {
             {/* 이벤트 테이블 */}
             <div className="overflow-x-auto">
               <table className="w-full bg-white shadow-md rounded-lg overflow-hidden text-sm sm:text-base">
-                <thead className="bg-blue-500 text-white">
+                <thead className="bg-black text-white">
                   <tr>
                     <th className="px-2 py-2 sm:px-4 text-left">이름</th>
                     <th className="px-2 py-2 sm:px-4 text-left">날짜</th>
@@ -371,19 +371,19 @@ function Events() {
                         <td className="px-2 py-2 sm:px-4">
                           <button
                             onClick={() => handleEdit(event)}
-                            className="text-blue-600 hover:text-blue-800 mr-2"
+                            className="text-[#2cb67d] hover:text-[#ffd700] mr-2"
                           >
                             수정
                           </button>
                           <button
                             onClick={() => handleDelete(event.id)}
-                            className="text-red-600 hover:text-red-800 mr-2"
+                            className="text-[#ff4f5e] mr-2"
                           >
                             삭제
                           </button>
                           <button
                             onClick={() => handleResetAttendance(event.id)}
-                            className="text-yellow-600 hover:text-yellow-800"
+                            className="text-[#f5b841] hover:text-[#ffd700]"
                           >
                             초기화
                           </button>

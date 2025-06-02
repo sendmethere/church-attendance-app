@@ -104,6 +104,8 @@ function Statistics() {
   const [totalStats, setTotalStats] = useState({});
   const [showGroupMonthlyStats, setShowGroupMonthlyStats] = useState(false);
   const [selectedEventType, setSelectedEventType] = useState('all'); // 'all', 'am', 'pm', 'event'
+  const [showAbsenceReasons, setShowAbsenceReasons] = useState(false); // 새로운 상태 추가
+  const [absenceSortType, setAbsenceSortType] = useState('none'); // 'none', 'absence', 'excused'
 
   const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
@@ -659,6 +661,140 @@ function Statistics() {
     ];
   };
 
+  // 결석/공결 사유 데이터 생성 함수 수정
+  const getAbsenceReasonData = () => {
+    const absenceData = {};
+
+    // 각 멤버별로 결석/공결 데이터 초기화
+    members.forEach(member => {
+      if (selectedGroup === 'all' || member.group === selectedGroup) {
+        absenceData[member.id] = {
+          key: member.id,
+          name: member.name,
+          group: member.group,
+          absences: [],
+          excused: []
+        };
+      }
+    });
+
+    // 출석 데이터에서 결석/공결 정보 수집
+    attendanceData.forEach(record => {
+      if (record.data && record.data.list) {
+        record.data.list.forEach(attendance => {
+          if (attendance.status === 'absent' || attendance.status === 'excused') {
+            const member = members.find(m => m.id === attendance.id);
+            if (member && (selectedGroup === 'all' || member.group === selectedGroup)) {
+              const date = record.date;
+              const eventType = record.event_type;
+              const reason = attendance.reason || '사유 없음';
+              
+              const entry = {
+                date,
+                eventType,
+                reason
+              };
+
+              if (attendance.status === 'absent') {
+                absenceData[member.id].absences.push(entry);
+              } else {
+                absenceData[member.id].excused.push(entry);
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // 데이터를 배열로 변환
+    let data = Object.values(absenceData)
+      .filter(data => data.absences.length > 0 || data.excused.length > 0);
+
+    // 정렬 타입에 따라 정렬
+    switch (absenceSortType) {
+      case 'absence':
+        data.sort((a, b) => b.absences.length - a.absences.length);
+        break;
+      case 'excused':
+        data.sort((a, b) => b.excused.length - a.excused.length);
+        break;
+      default:
+        // 기본 정렬: 그룹 순서 -> 이름 순서
+        data.sort((a, b) => {
+          const groupIndexA = groupOrder.indexOf(a.group);
+          const groupIndexB = groupOrder.indexOf(b.group);
+          if (groupIndexA !== groupIndexB) {
+            return groupIndexA - groupIndexB;
+          }
+          return a.name.localeCompare(b.name, 'ko');
+        });
+    }
+
+    return data;
+  };
+
+  // 결석/공결 사유 테이블 컬럼 정의
+  const absenceReasonColumns = [
+    {
+      title: '그룹',
+      dataIndex: 'group',
+      key: 'group',
+      width: 100,
+      align: 'center',
+    },
+    {
+      title: '이름',
+      dataIndex: 'name',
+      key: 'name',
+      width: 100,
+      align: 'center',
+      render: (text, record) => (
+        <div>
+          <div>{text}</div>
+          <div style={{ fontSize: '0.8rem', color: 'gray' }}>
+            ({record.absences.length} / {record.excused.length})
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '결석 내역',
+      dataIndex: 'absences',
+      key: 'absences',
+      width: 300,
+      render: (absences) => (
+        <div>
+          {absences.map((absence, index) => (
+            <div key={index} style={{ marginBottom: '4px' }}>
+              <span style={{ color: '#ff4d4f' }}>
+                {`${absence.date} (${absence.eventType === 'am' ? '오전' : absence.eventType === 'pm' ? '오후' : '행사'})`}
+              </span>
+              <span style={{ marginLeft: '8px' }}>{absence.reason}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: '공결 내역',
+      dataIndex: 'excused',
+      key: 'excused',
+      width: 300,
+      render: (excused) => (
+        <div>
+          {excused.map((excuse, index) => (
+            <div key={index} style={{ marginBottom: '4px' }}>
+              <span style={{ color: '#faad14' }}>
+                {`${excuse.date} (${excuse.eventType === 'am' ? '오전' : excuse.eventType === 'pm' ? '오후' : '행사'})`}
+              </span>
+              <span style={{ marginLeft: '8px' }}>{excuse.reason}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <ConfigProvider>
       <div className="p-6">
@@ -738,6 +874,7 @@ function Statistics() {
               type={showGroupMonthlyStats ? 'default' : 'default'}
               onClick={() => {
                 setShowGroupMonthlyStats(!showGroupMonthlyStats);
+                setShowAbsenceReasons(false);
                 if (!showGroupMonthlyStats) {
                   setViewType('month');
                 }
@@ -746,6 +883,17 @@ function Statistics() {
               style={showGroupMonthlyStats ? selectedButtonStyle : customButtonStyle}
             >
               부서별 월별 통계
+            </Button>
+            <Button
+              type={showAbsenceReasons ? 'default' : 'default'}
+              onClick={() => {
+                setShowAbsenceReasons(!showAbsenceReasons);
+                setShowGroupMonthlyStats(false);
+              }}
+              className={showAbsenceReasons ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={showAbsenceReasons ? selectedButtonStyle : customButtonStyle}
+            >
+              결석/공결 사유
             </Button>
           </Space>
             </Space>
@@ -886,7 +1034,51 @@ function Statistics() {
         </Space>
 
         {/* 부서별 월별 통계 테이블 */}
-        {showGroupMonthlyStats ? (
+        {showAbsenceReasons ? (
+          <div className="mb-6">
+            <Space direction="vertical" size="middle" className="w-full">
+              <Space>
+                <Title level={4} className="mb-0">
+                  결석/공결 사유 내역
+                </Title>
+                <Space className="ml-4">
+                  <Button
+                    type={absenceSortType === 'none' ? 'default' : 'default'}
+                    onClick={() => setAbsenceSortType('none')}
+                    className={absenceSortType === 'none' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    style={absenceSortType === 'none' ? selectedButtonStyle : customButtonStyle}
+                  >
+                    기본 정렬
+                  </Button>
+                  <Button
+                    type={absenceSortType === 'absence' ? 'default' : 'default'}
+                    onClick={() => setAbsenceSortType('absence')}
+                    className={absenceSortType === 'absence' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    style={absenceSortType === 'absence' ? selectedButtonStyle : customButtonStyle}
+                  >
+                    결석 많은 순
+                  </Button>
+                  <Button
+                    type={absenceSortType === 'excused' ? 'default' : 'default'}
+                    onClick={() => setAbsenceSortType('excused')}
+                    className={absenceSortType === 'excused' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    style={absenceSortType === 'excused' ? selectedButtonStyle : customButtonStyle}
+                  >
+                    공결 많은 순
+                  </Button>
+                </Space>
+              </Space>
+              <Table
+                columns={absenceReasonColumns}
+                dataSource={getAbsenceReasonData()}
+                pagination={false}
+                size="small"
+                bordered
+                scroll={{ x: 'max-content' }}
+              />
+            </Space>
+          </div>
+        ) : showGroupMonthlyStats ? (
           <div className="mb-6">
             <Title level={4} className="mb-4">
               {selectedYear}년 {selectedMonth}월 부서별 통계
