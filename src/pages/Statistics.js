@@ -8,6 +8,90 @@ import { DownloadOutlined } from '@ant-design/icons';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+// 커스텀 스타일 정의
+const customButtonStyle = {
+  '&.ant-btn-default': {
+    color: 'rgba(0, 0, 0, 0.88) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#ffffff !important',
+  },
+  '&.ant-btn-default:hover': {
+    color: 'rgba(0, 0, 0, 0.88) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f5f5f5 !important',
+  },
+  '&.ant-btn-default:active': {
+    color: 'rgba(0, 0, 0, 0.88) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f0f0f0 !important',
+  },
+  '&.ant-btn-default.ant-btn-dangerous': {
+    color: '#ff4d4f !important',
+    borderColor: '#ff4d4f !important',
+    backgroundColor: '#ffffff !important',
+  },
+  '&.ant-btn-default.ant-btn-dangerous:hover': {
+    color: '#ff7875 !important',
+    borderColor: '#ff7875 !important',
+    backgroundColor: '#fff1f0 !important',
+  },
+  '&.ant-btn-default.ant-btn-dangerous:active': {
+    color: '#d9363e !important',
+    borderColor: '#d9363e !important',
+    backgroundColor: '#fff1f0 !important',
+  },
+  '&.ant-btn-default.ant-btn-dangerous:disabled': {
+    color: 'rgba(0, 0, 0, 0.25) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f5f5f5 !important',
+  },
+  '&.ant-btn-default:disabled': {
+    color: 'rgba(0, 0, 0, 0.25) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f5f5f5 !important',
+  },
+  '&.ant-btn-default:hover:not(:disabled)': {
+    color: 'rgba(0, 0, 0, 0.88) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f5f5f5 !important',
+  },
+  '&.ant-btn-default:active:not(:disabled)': {
+    color: 'rgba(0, 0, 0, 0.88) !important',
+    borderColor: '#d9d9d9 !important',
+    backgroundColor: '#f0f0f0 !important',
+  },
+};
+
+// 선택된 버튼 스타일
+const selectedButtonStyle = {
+  ...customButtonStyle,
+  '&.ant-btn-default': {
+    color: 'white !important',
+    borderColor: '#000 !important',
+    backgroundColor: '#000 !important',
+  },
+  '&.ant-btn-default:hover': {
+    color: 'white !important',
+    borderColor: '#000 !important',
+    backgroundColor: '#1a1a1a !important',
+  },
+  '&.ant-btn-default:active': {
+    color: 'white !important',
+    borderColor: '#000 !important',
+    backgroundColor: '#333 !important',
+  },
+  '&.ant-btn-default:hover:not(:disabled)': {
+    color: 'white !important',
+    borderColor: '#000 !important',
+    backgroundColor: '#1a1a1a !important',
+  },
+  '&.ant-btn-default:active:not(:disabled)': {
+    color: 'white !important',
+    borderColor: '#000 !important',
+    backgroundColor: '#333 !important',
+  },
+};
+
 function Statistics() {
   const [attendanceData, setAttendanceData] = useState([]);
   const [members, setMembers] = useState([]);
@@ -19,6 +103,7 @@ function Statistics() {
   const [yearPeriod, setYearPeriod] = useState('full'); // 'full', 'first', 'second', 'q1', 'q2', 'q3', 'q4'
   const [totalStats, setTotalStats] = useState({});
   const [showGroupMonthlyStats, setShowGroupMonthlyStats] = useState(false);
+  const [selectedEventType, setSelectedEventType] = useState('all'); // 'all', 'am', 'pm', 'event'
 
   const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
 
@@ -321,7 +406,7 @@ function Statistics() {
     ...(attendanceData.length > 0 
       ? getEventDates(attendanceData).flatMap(dateInfo => {
           const columns = [];
-          if (dateInfo.am) {
+          if (dateInfo.am && (selectedEventType === 'all' || selectedEventType === 'am')) {
             columns.push({
               title: () => (
                 <div>
@@ -336,7 +421,7 @@ function Statistics() {
               render: (value, record) => renderAttendanceCell(value, record, dateInfo.date, 'am'),
             });
           }
-          if (dateInfo.pm) {
+          if (dateInfo.pm && (selectedEventType === 'all' || selectedEventType === 'pm')) {
             columns.push({
               title: () => (
                 <div>
@@ -351,7 +436,7 @@ function Statistics() {
               render: (value, record) => renderAttendanceCell(value, record, dateInfo.date, 'pm'),
             });
           }
-          if (dateInfo.event) {
+          if (dateInfo.event && (selectedEventType === 'all' || selectedEventType === 'event')) {
             columns.push({
               title: () => (
                 <div>
@@ -457,6 +542,11 @@ function Statistics() {
 
     // 각 그룹별 출결 현황 집계
     attendanceData.forEach(record => {
+      // 선택된 이벤트 타입에 따라 필터링
+      if (selectedEventType !== 'all' && record.event_type !== selectedEventType) {
+        return;
+      }
+
       if (record.data && record.data.list) {
         record.data.list.forEach(attendance => {
           const member = members.find(m => m.id === attendance.id);
@@ -592,10 +682,11 @@ function Statistics() {
               : ` ${selectedMonth}월`})
           </Title>
           <Button
-            type="primary"
+            type="default"
             icon={<DownloadOutlined />}
             onClick={handleExcelDownload}
-            className="hide-on-print"
+            className="hide-on-print bg-black text-white hover:bg-gray-800"
+            style={selectedButtonStyle}
           >
             <span className="hidden sm:inline">엑셀 다운로드</span>
           </Button>
@@ -605,17 +696,22 @@ function Statistics() {
             {/* 첫 번째 행: 연/월 선택 */}
             <Space wrap>
               <Button
-                type={viewType === 'year' ? 'primary' : 'default'}
+                type={viewType === 'year' ? 'default' : 'default'}
                 onClick={() => {
                   setViewType('year');
                   setYearPeriod('full');
+                  setShowGroupMonthlyStats(false);
                 }}
+                className={viewType === 'year' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                style={viewType === 'year' ? selectedButtonStyle : customButtonStyle}
               >
                 연간 통계
               </Button>
               <Button
-                type={viewType === 'month' ? 'primary' : 'default'}
+                type={viewType === 'month' ? 'default' : 'default'}
                 onClick={() => setViewType('month')}
+                className={viewType === 'month' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                style={viewType === 'month' ? selectedButtonStyle : customButtonStyle}
               >
                 월간 통계
               </Button>
@@ -639,8 +735,15 @@ function Statistics() {
               {/* 부서별 월별 통계 버튼 */}
           <Space wrap className="hide-on-print">
             <Button
-              type={showGroupMonthlyStats ? 'primary' : 'default'}
-              onClick={() => setShowGroupMonthlyStats(!showGroupMonthlyStats)}
+              type={showGroupMonthlyStats ? 'default' : 'default'}
+              onClick={() => {
+                setShowGroupMonthlyStats(!showGroupMonthlyStats);
+                if (!showGroupMonthlyStats) {
+                  setViewType('month');
+                }
+              }}
+              className={showGroupMonthlyStats ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={showGroupMonthlyStats ? selectedButtonStyle : customButtonStyle}
             >
               부서별 월별 통계
             </Button>
@@ -656,44 +759,58 @@ function Statistics() {
             {viewType === 'year' && (
               <Space wrap>
                 <Button
-                  type={yearPeriod === 'full' ? 'primary' : 'default'}
+                  type={yearPeriod === 'full' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('full')}
+                  className={yearPeriod === 'full' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'full' ? selectedButtonStyle : customButtonStyle}
                 >
                   전체
                 </Button>
                 <Button
-                  type={yearPeriod === 'first' ? 'primary' : 'default'}
+                  type={yearPeriod === 'first' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('first')}
+                  className={yearPeriod === 'first' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'first' ? selectedButtonStyle : customButtonStyle}
                 >
                   상반기
                 </Button>
                 <Button
-                  type={yearPeriod === 'second' ? 'primary' : 'default'}
+                  type={yearPeriod === 'second' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('second')}
+                  className={yearPeriod === 'second' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'second' ? selectedButtonStyle : customButtonStyle}
                 >
                   하반기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q1' ? 'primary' : 'default'}
+                  type={yearPeriod === 'q1' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('q1')}
+                  className={yearPeriod === 'q1' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'q1' ? selectedButtonStyle : customButtonStyle}
                 >
                   1분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q2' ? 'primary' : 'default'}
+                  type={yearPeriod === 'q2' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('q2')}
+                  className={yearPeriod === 'q2' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'q2' ? selectedButtonStyle : customButtonStyle}
                 >
                   2분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q3' ? 'primary' : 'default'}
+                  type={yearPeriod === 'q3' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('q3')}
+                  className={yearPeriod === 'q3' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'q3' ? selectedButtonStyle : customButtonStyle}
                 >
                   3분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q4' ? 'primary' : 'default'}
+                  type={yearPeriod === 'q4' ? 'default' : 'default'}
                   onClick={() => setYearPeriod('q4')}
+                  className={yearPeriod === 'q4' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  style={yearPeriod === 'q4' ? selectedButtonStyle : customButtonStyle}
                 >
                   4분기
                 </Button>
@@ -707,20 +824,63 @@ function Statistics() {
           {/* 그룹 필터 버튼 */}
           <Space wrap className="hide-on-print">
             <Button 
-              type={selectedGroup === 'all' ? 'primary' : 'default'}
+              type={selectedGroup === 'all' ? 'default' : 'default'}
               onClick={() => setSelectedGroup('all')}
+              className={selectedGroup === 'all' ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={selectedGroup === 'all' ? selectedButtonStyle : customButtonStyle}
             >
               전체
             </Button>
             {groupOrder.map(group => (
               <Button
                 key={group}
-                type={selectedGroup === group ? 'primary' : 'default'}
+                type={selectedGroup === group ? 'default' : 'default'}
                 onClick={() => setSelectedGroup(group)}
+                className={selectedGroup === group ? 'bg-black text-white hover:bg-gray-800' : ''}
+                style={selectedGroup === group ? selectedButtonStyle : customButtonStyle}
               >
                 {group}
               </Button>
             ))}
+          </Space>
+
+          {/* 구분선 추가 */}
+          <div className="w-full border-t border-gray-200 my-2" />
+
+          {/* 이벤트 타입 필터 버튼 */}
+          <Space wrap className="hide-on-print">
+            <Button 
+              type={selectedEventType === 'all' ? 'default' : 'default'}
+              onClick={() => setSelectedEventType('all')}
+              className={selectedEventType === 'all' ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={selectedEventType === 'all' ? selectedButtonStyle : customButtonStyle}
+            >
+              전체
+            </Button>
+            <Button
+              type={selectedEventType === 'am' ? 'default' : 'default'}
+              onClick={() => setSelectedEventType('am')}
+              className={selectedEventType === 'am' ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={selectedEventType === 'am' ? selectedButtonStyle : customButtonStyle}
+            >
+              오전
+            </Button>
+            <Button
+              type={selectedEventType === 'pm' ? 'default' : 'default'}
+              onClick={() => setSelectedEventType('pm')}
+              className={selectedEventType === 'pm' ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={selectedEventType === 'pm' ? selectedButtonStyle : customButtonStyle}
+            >
+              오후
+            </Button>
+            <Button
+              type={selectedEventType === 'event' ? 'default' : 'default'}
+              onClick={() => setSelectedEventType('event')}
+              className={selectedEventType === 'event' ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={selectedEventType === 'event' ? selectedButtonStyle : customButtonStyle}
+            >
+              행사
+            </Button>
           </Space>
 
         </Space>
@@ -730,6 +890,11 @@ function Statistics() {
           <div className="mb-6">
             <Title level={4} className="mb-4">
               {selectedYear}년 {selectedMonth}월 부서별 통계
+              {selectedEventType !== 'all' && (
+                <span className="ml-2 text-base">
+                  ({selectedEventType === 'am' ? '오전' : selectedEventType === 'pm' ? '오후' : '행사'})
+                </span>
+              )}
             </Title>
             <Table
               columns={groupMonthlyColumns}

@@ -6,6 +6,9 @@ const MemberManagement = () => {
   const [groupFilter, setGroupFilter] = useState(() => 
     localStorage.getItem('selectedMemberGroup') || 'all'
   );
+  const [tagFilter, setTagFilter] = useState(() => 
+    localStorage.getItem('selectedMemberTag') || 'all'
+  );
   const [showInactive, setShowInactive] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,8 +30,11 @@ const MemberManagement = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [editingTags, setEditingTags] = useState([]);
 
   const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+  const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
 
   useEffect(() => {
     fetchMembers();
@@ -54,6 +60,11 @@ const MemberManagement = () => {
     localStorage.setItem('selectedMemberGroup', group);
   };
 
+  const handleTagFilterChange = (tag) => {
+    setTagFilter(tag);
+    localStorage.setItem('selectedMemberTag', tag);
+  };
+
   const isActiveMember = (member) => {
     const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))
       .toISOString()
@@ -76,9 +87,19 @@ const MemberManagement = () => {
     return activeMembers.filter(member => member.group === group).length;
   };
 
+  const getMemberCountByTag = (tag) => {
+    const activeMembers = members.filter(isActiveMember);
+    
+    if (tag === 'all') {
+      return activeMembers.length;
+    }
+    return activeMembers.filter(member => member.tags?.includes(tag)).length;
+  };
+
   const filteredMembers = members
     .filter((member) => showInactive ? true : isActiveMember(member))
-    .filter((member) => groupFilter === 'all' || member.group === groupFilter);
+    .filter((member) => groupFilter === 'all' || member.group === groupFilter)
+    .filter((member) => tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter)));
 
   const handleEditDates = (member) => {
     setEditingMember(member);
@@ -109,10 +130,8 @@ const MemberManagement = () => {
       ));
 
       setIsModalOpen(false);
-      alert('날짜가 성공적으로 업데이트되었습니다.');
     } catch (error) {
       console.error('Error updating dates:', error);
-      alert('날짜 업데이트 중 오류가 발생했습니다.');
     } finally {
       setIsUpdating(false);
     }
@@ -124,27 +143,23 @@ const MemberManagement = () => {
     setIsGroupModalOpen(true);
   };
 
-  const handleUpdateGroup = async () => {
+  const handleUpdateGroup = async (member, newGroup) => {
     setIsGroupUpdating(true);
     try {
       const { error } = await supabase
         .from('members')
-        .update({ group: editingGroup })
-        .eq('id', editingMember.id);
+        .update({ group: newGroup })
+        .eq('id', member.id);
 
       if (error) throw error;
 
-      setMembers(members.map(member => 
-        member.id === editingMember.id 
-          ? { ...member, group: editingGroup }
-          : member
+      setMembers(members.map(m => 
+        m.id === member.id 
+          ? { ...m, group: newGroup }
+          : m
       ));
-
-      setIsGroupModalOpen(false);
-      alert('그룹이 성공적으로 업데이트되었습니다.');
     } catch (error) {
       console.error('Error updating group:', error);
-      alert('그룹 업데이트 중 오류가 발생했습니다.');
     } finally {
       setIsGroupUpdating(false);
     }
@@ -180,10 +195,8 @@ const MemberManagement = () => {
         out_date: '',
         group: '소프라노'
       });
-      alert('멤버가 성공적으로 추가되었습니다.');
     } catch (error) {
       console.error('Error adding member:', error);
-      alert('멤버 추가 중 오류가 발생했습니다.');
     } finally {
       setIsAdding(false);
     }
@@ -208,13 +221,42 @@ const MemberManagement = () => {
       setIsDeleteModalOpen(false);
       setDeleteConfirmName('');
       setEditingMember(null);
-      alert('멤버가 성공적으로 삭제되었습니다.');
     } catch (error) {
       console.error('Error deleting member:', error);
-      alert('멤버 삭제 중 오류가 발생했습니다.');
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleUpdateTags = async (member, newTags) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('members')
+        .update({ tags: newTags })
+        .eq('id', member.id);
+
+      if (error) throw error;
+
+      setMembers(members.map(m => 
+        m.id === member.id 
+          ? { ...m, tags: newTags }
+          : m
+      ));
+    } catch (error) {
+      console.error('Error updating tags:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const toggleTag = (member, tag) => {
+    const currentTags = member.tags || [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
+    
+    handleUpdateTags(member, newTags);
   };
 
   return (
@@ -245,52 +287,96 @@ const MemberManagement = () => {
         </div>
 
         <div className="mb-6">
-          {/* 그룹 필터 버튼 */}
-          <div className="flex flex-wrap justify-center gap-2 mb-6">
-            <button
-              onClick={() => handleGroupFilterChange('all')}
-              className={`px-1 py-1.5 sm:px-2 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
-                groupFilter === 'all'
-                  ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-              }`}
-            >
-              <span>전체</span>
-              <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
-                {getMemberCountByGroup('all')}
-              </span>
-            </button>
-            {groups.map((group) => (
-              <button
-                key={group}
-                onClick={() => handleGroupFilterChange(group)}
-                className={`px-1 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
-                  groupFilter === group
-                    ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                }`}
-              >
-                <span>{group}</span>
-                <span className={`ml-1 sm:ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
-                  groupFilter === group
-                    ? 'bg-white bg-opacity-20'
-                    : 'bg-white bg-opacity-50'
-                }`}>
-                  {getMemberCountByGroup(group)}
-                </span>
-              </button>
-            ))}
+          <div className="flex flex-col space-y-4 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">그룹 필터</h3>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleGroupFilterChange('all')}
+                  className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                    groupFilter === 'all'
+                      ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
+                      : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                  }`}
+                >
+                  <span>전체</span>
+                  <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                    {getMemberCountByGroup('all')}
+                  </span>
+                </button>
+                {groups.map((group) => (
+                  <button
+                    key={group}
+                    onClick={() => handleGroupFilterChange(group)}
+                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                      groupFilter === group
+                        ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
+                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                    }`}
+                  >
+                    <span>{group}</span>
+                    <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                      groupFilter === group
+                        ? 'bg-white bg-opacity-20'
+                        : 'bg-white bg-opacity-50'
+                    }`}>
+                      {getMemberCountByGroup(group)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">태그 필터</h3>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleTagFilterChange('all')}
+                  className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                    tagFilter === 'all'
+                      ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
+                      : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                  }`}
+                >
+                  <span>전체</span>
+                  <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                    {getMemberCountByTag('all')}
+                  </span>
+                </button>
+                {tags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagFilterChange(tag)}
+                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                      tagFilter === tag
+                        ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
+                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                    }`}
+                  >
+                    <span>{tag}</span>
+                    <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                      tagFilter === tag
+                        ? 'bg-white bg-opacity-20'
+                        : 'bg-white bg-opacity-50'
+                    }`}>
+                      {getMemberCountByTag(tag)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* 멤버 테이블 */}
           <div className="overflow-x-auto">
             <table className="w-full bg-white shadow-md rounded-lg overflow-hidden text-center text-sm sm:text-base">
-              <thead className="bg-blue-500 text-white">
+              <thead className="bg-black text-white">
                 <tr>
                   <th className="px-2 py-2 sm:px-4 whitespace-nowrap">이름</th>
                   <th className="px-2 py-2 sm:px-4 whitespace-nowrap">등록 날짜</th>
                   <th className="px-2 py-2 sm:px-4 whitespace-nowrap">만료 날짜</th>
                   <th className="px-2 py-2 sm:px-4 whitespace-nowrap">그룹</th>
+                  <th className="px-2 py-2 sm:px-4 whitespace-nowrap">태그</th>
                   <th className="px-2 py-2 sm:px-4 whitespace-nowrap">작업</th>
                 </tr>
               </thead>
@@ -322,17 +408,43 @@ const MemberManagement = () => {
                     >
                       {member.out_date || '-'}
                     </td>
+                    <td className="px-2 py-2 sm:px-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {groups.map(group => (
+                          <button
+                            key={group}
+                            onClick={() => handleUpdateGroup(member, group)}
+                            disabled={isGroupUpdating}
+                            className={`px-2 py-1 rounded-lg text-xs transition-colors ${
+                              member.group === group
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                            }`}
+                          >
+                            {group}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
                     <td 
                       className="px-2 py-2 sm:px-4 cursor-pointer whitespace-nowrap"
-                      onClick={() => handleEditGroup(member)}
                     >
-                      <span className={`px-2 py-1 sm:px-3 rounded-lg text-sm ${
-                        groups.includes(member.group)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-300 text-gray-700'
-                      }`}>
-                        {member.group}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {tags.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(member, tag)}
+                            disabled={isUpdating}
+                            className={`px-2 py-1 rounded-lg text-xs transition-colors ${
+                              member.tags?.includes(tag)
+                                ? 'bg-purple-500 text-white'
+                                : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-2 py-2 sm:px-4 whitespace-nowrap">
                       <button
@@ -419,52 +531,6 @@ const MemberManagement = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* 그룹 수정 모달 */}
-      {isGroupModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingMember?.name} 그룹 수정
-            </h2>
-            <div className="space-y-3">
-              {groups.map((group) => (
-                <label key={group} className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="group"
-                    value={group}
-                    checked={editingGroup === group}
-                    onChange={(e) => setEditingGroup(e.target.value)}
-                    className="form-radio h-4 w-4 text-blue-500 focus:ring-blue-400"
-                  />
-                  <span className="text-gray-700">{group}</span>
-                </label>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setIsGroupModalOpen(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleUpdateGroup}
-                disabled={isGroupUpdating || editingGroup === editingMember?.group}
-                className={`px-4 py-2 rounded-lg ${
-                  isGroupUpdating || editingGroup === editingMember?.group
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isGroupUpdating ? '업데이트 중...' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-        
       )}
 
       {/* 멤버 추가 모달 추가 (마지막 모달 이후에 추가) */}

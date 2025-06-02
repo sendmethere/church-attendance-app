@@ -10,6 +10,9 @@ const AttendanceManagement = () => {
   const [groupFilter, setGroupFilter] = useState(() => 
     localStorage.getItem('selectedGroup') || 'all'
   );
+  const [tagFilter, setTagFilter] = useState(() => 
+    localStorage.getItem('selectedTag') || 'all'
+  );
   const [editReason, setEditReason] = useState({});
   const [changes, setChanges] = useState({});
   const [isUpdating, setIsUpdating] = useState(false);
@@ -25,6 +28,7 @@ const AttendanceManagement = () => {
   const [showExcusedModal, setShowExcusedModal] = useState(false);
 
   const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+  const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
 
   const isSunday = (dateString) => {
     const date = new Date(dateString);
@@ -152,6 +156,7 @@ const AttendanceManagement = () => {
         id: member.id,
         name: member.name,
         group: member.group,
+        tags: member.tags || [],
         status: 'present',
         reason: '',
       })),
@@ -349,8 +354,15 @@ const AttendanceManagement = () => {
     localStorage.setItem('selectedGroup', group);
   };
 
+  const handleTagFilterChange = (tag) => {
+    setTagFilter(tag);
+    localStorage.setItem('selectedTag', tag);
+  };
+
   const filteredMembers = attendance.list?.filter((member) => {
-    return groupFilter === 'all' || member.group === groupFilter;
+    const groupMatch = groupFilter === 'all' || member.group === groupFilter;
+    const tagMatch = tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter));
+    return groupMatch && tagMatch;
   }) || [];
 
   // 통계 계산 함수 추가
@@ -602,14 +614,17 @@ const AttendanceManagement = () => {
         currentAttendanceData.list.map(member => [member.id, member])
       );
 
-      // 4.1 새로 추가되거나 그룹이 변경된 멤버 확인
+      // 4.1 새로 추가되거나 그룹/태그가 변경된 멤버 확인
       activeMemberMap.forEach((activeMember, id) => {
         const currentMember = currentMemberMap.get(id);
         if (!currentMember) {
           // 새로운 멤버
           changes.added.push(activeMember);
-        } else if (currentMember.group !== activeMember.group) {
-          // 그룹이 변경된 멤버
+        } else if (
+          currentMember.group !== activeMember.group ||
+          JSON.stringify(currentMember.tags || []) !== JSON.stringify(activeMember.tags || [])
+        ) {
+          // 그룹이나 태그가 변경된 멤버
           changes.updated.push(activeMember);
         }
       });
@@ -636,16 +651,21 @@ const AttendanceManagement = () => {
           id: member.id,
           name: member.name,
           group: member.group,
+          tags: member.tags || [],
           status: 'present',
           reason: '',
         });
       });
 
-      // 5.2 그룹 정보 업데이트
+      // 5.2 그룹과 태그 정보 업데이트
       changes.updated.forEach(member => {
         updatedList = updatedList.map(item =>
           item.id === member.id
-            ? { ...item, group: member.group }
+            ? { 
+                ...item, 
+                group: member.group,
+                tags: member.tags || []
+              }
             : item
         );
       });
@@ -692,7 +712,7 @@ const AttendanceManagement = () => {
       alert(
         `멤버 최신화가 완료되었습니다.\n` +
         `- 추가된 멤버: ${changes.added.length}명\n` +
-        `- 그룹 변경: ${changes.updated.length}명\n` +
+        `- 그룹/태그 변경: ${changes.updated.length}명\n` +
         `- 제거된 멤버: ${changes.removed.length}명`
       );
 
@@ -768,6 +788,21 @@ const AttendanceManagement = () => {
     );
   };
 
+  // 멤버 수 계산 함수 추가
+  const getMemberCountByGroup = (group) => {
+    if (group === 'all') {
+      return filteredMembers.length;
+    }
+    return filteredMembers.filter(member => member.group === group).length;
+  };
+
+  const getMemberCountByTag = (tag) => {
+    if (tag === 'all') {
+      return filteredMembers.length;
+    }
+    return filteredMembers.filter(member => member.tags?.includes(tag)).length;
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">전주교회 찬양대</h1>
@@ -835,7 +870,7 @@ const AttendanceManagement = () => {
                 <button
                   className={`px-3 py-1 text-sm font-semibold rounded-l-lg ${
                     timeOfDay === 'am'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-black text-white'
                       : availableEvents.am
                       ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -848,7 +883,7 @@ const AttendanceManagement = () => {
                 <button
                   className={`px-3 py-1 text-sm font-semibold ${
                     timeOfDay === 'pm'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-black text-white'
                       : availableEvents.pm
                       ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -861,7 +896,7 @@ const AttendanceManagement = () => {
                 <button
                   className={`px-3 py-1 text-sm font-semibold rounded-r-lg ${
                     timeOfDay === 'event'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-black text-white'
                       : availableEvents.event
                       ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -875,7 +910,7 @@ const AttendanceManagement = () => {
 
               <button
                 onClick={handleDateSearch}
-                className="px-3 py-1 text-sm font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-300 transition-colors"
+                className="px-3 py-1 text-sm font-semibold text-white bg-black rounded-lg hover:bg-gray-800 focus:ring-2 transition-colors"
               >
                 조회
               </button>
@@ -885,7 +920,7 @@ const AttendanceManagement = () => {
           <div className="flex space-x-2">
             <button
               onClick={syncMembers}
-              className="px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white bg-green-500 hover:bg-green-600 focus:ring-2 focus:ring-green-300 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
             >
               멤버 최신화
             </button>
@@ -917,17 +952,17 @@ const AttendanceManagement = () => {
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">
                   {groupFilter === 'all' ? '전체' : groupFilter}
                 </h3>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                <p className="text-xl sm:text-2xl font-bold text-black">
                   {filteredMembers.length}명
                 </p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">출석</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                  <p className="text-xl sm:text-2xl font-bold text-green-600">
+                  <p className="text-xl sm:text-2xl font-bold text-[#2cb67d]">
                     {filteredMembers.filter(item => item.status === 'present').length}명
                   </p>
-                  <p className="text-xs sm:text-lg text-green-500">
+                  <p className="text-xs sm:text-lg text-[#2cb67d]">
                     ({calculateStats(filteredMembers).presentRate}%)
                   </p>
                 </div>
@@ -938,10 +973,10 @@ const AttendanceManagement = () => {
               >
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">결석</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                  <p className="text-xl sm:text-2xl font-bold text-red-600">
+                  <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e]">
                     {filteredMembers.filter(item => item.status === 'absent').length}명
                   </p>
-                  <p className="text-xs sm:text-lg text-red-500">
+                  <p className="text-xs sm:text-lg text-[#ff4f5e]">
                     ({calculateStats(filteredMembers).absentRate}%)
                   </p>
                 </div>
@@ -952,10 +987,10 @@ const AttendanceManagement = () => {
               >
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">공결</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                  <p className="text-xl sm:text-2xl font-bold text-yellow-600">
+                  <p className="text-xl sm:text-2xl font-bold text-[#f5b841]">
                     {filteredMembers.filter(item => item.status === 'excused').length}명
                   </p>
-                  <p className="text-xs sm:text-lg text-yellow-500">
+                  <p className="text-xs sm:text-lg text-[#f5b841]">
                     ({calculateStats(filteredMembers).excusedRate}%)
                   </p>
                 </div>
@@ -1003,13 +1038,13 @@ const AttendanceManagement = () => {
                           <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-gray-500">
                             인원
                           </th>
-                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-green-600">
+                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-[#2cb67d]">
                             출석
                           </th>
-                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-red-600">
+                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-[#ff4f5e]">
                             결석
                           </th>
-                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-yellow-600">
+                          <th scope="col" className="px-3 py-2 text-center text-xs sm:text-sm font-medium text-[#f5b841]">
                             공결
                           </th>
                         </tr>
@@ -1027,16 +1062,16 @@ const AttendanceManagement = () => {
                                 {stats.total}명
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm text-center">
-                                <div className="text-green-600">{stats.present}명</div>
-                                <div className="text-green-500 text-xs">({stats.presentRate}%)</div>
+                                <div className="text-[#2cb67d]">{stats.present}명</div>
+                                <div className="text-[#2cb67d] text-xs">({stats.presentRate}%)</div>
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm text-center">
-                                <div className="text-red-600">{stats.absent}명</div>
-                                <div className="text-red-500 text-xs">({stats.absentRate}%)</div>
+                                <div className="text-[#ff4f5e]">{stats.absent}명</div>
+                                <div className="text-[#ff4f5e] text-xs">({stats.absentRate}%)</div>
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm text-center">
-                                <div className="text-yellow-600">{stats.excused}명</div>
-                                <div className="text-yellow-500 text-xs">({stats.excusedRate}%)</div>
+                                <div className="text-[#f5b841]">{stats.excused}명</div>
+                                <div className="text-[#f5b841] text-xs">({stats.excusedRate}%)</div>
                               </td>
                             </tr>
                           );
@@ -1048,40 +1083,92 @@ const AttendanceManagement = () => {
               </div>
             )}
 
-            <div className="flex flex-wrap justify-center gap-2 mb-4">
-              <button
-                onClick={() => handleGroupFilterChange('all')}
-                className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md ${
-                  groupFilter === 'all'
-                    ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                }`}
-              >
-                전체
-              </button>
-              {groups.map((group) => (
-                <button
-                  key={group}
-                  onClick={() => handleGroupFilterChange(group)}
-                  className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md ${
-                    groupFilter === group
-                      ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                      : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                  }`}
-                >
-                  {group}
-                </button>
-              ))}
+            <div className="flex flex-col space-y-4 mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">그룹 필터</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleGroupFilterChange('all')}
+                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                      groupFilter === 'all'
+                        ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    }`}
+                  >
+                    <span>전체</span>
+                    <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                      {getMemberCountByGroup('all')}
+                    </span>
+                  </button>
+                  {groups.map((group) => (
+                    <button
+                      key={group}
+                      onClick={() => handleGroupFilterChange(group)}
+                      className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                        groupFilter === group
+                          ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
+                    >
+                      <span>{group}</span>
+                      <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                        groupFilter === group
+                          ? 'bg-white bg-opacity-20'
+                          : 'bg-white bg-opacity-50'
+                      }`}>
+                        {getMemberCountByGroup(group)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">태그 필터</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleTagFilterChange('all')}
+                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                      tagFilter === 'all'
+                        ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    }`}
+                  >
+                    <span>전체</span>
+                    <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                      {getMemberCountByTag('all')}
+                    </span>
+                  </button>
+                  {tags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handleTagFilterChange(tag)}
+                      className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                        tagFilter === tag
+                          ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
+                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                      }`}
+                    >
+                      <span>{tag}</span>
+                      <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                        tagFilter === tag
+                          ? 'bg-white bg-opacity-20'
+                          : 'bg-white bg-opacity-50'
+                      }`}>
+                        {getMemberCountByTag(tag)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="table-auto w-full bg-white shadow-md rounded-lg overflow-hidden text-center text-sm sm:text-base">
-                <thead className="bg-blue-500 text-white">
+                <thead className="bg-black text-white">
                   <tr>
                     <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">이름</th>
-                    {groupFilter === 'all' && (
-                      <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">소속</th>
-                    )}
+                    <th className="px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap">소속/태그</th>
                     <th className="px-2 py-1 sm:px-4 sm:py-2">출결</th>
                     <th className="px-2 py-1 sm:px-4 sm:py-2">사유</th>
                   </tr>
@@ -1090,9 +1177,21 @@ const AttendanceManagement = () => {
                   {filteredMembers.map((member) => (
                     <tr key={member.id} className="border-b hover:bg-gray-100">
                       <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
-                      {groupFilter === 'all' && (
-                        <td className="px-4 py-2 whitespace-nowrap">{member.group}</td>
-                      )}
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                            {member.group}
+                          </span>
+                          {member.tags && member.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
                       <td className="px-4 py-2">
                         <div className="flex justify-center space-x-1 sm:space-x-2">
                           {[
@@ -1106,10 +1205,10 @@ const AttendanceManagement = () => {
                               className={`px-2 sm:px-3 py-1 rounded-lg shadow-md focus:outline-none focus:ring text-xs sm:text-sm ${
                                 member.status === status
                                   ? status === 'present'
-                                    ? 'bg-green-500 text-white focus:ring-green-300'
+                                    ? 'bg-[#2cb67d] text-white focus:ring-[#2cb67d]'
                                     : status === 'absent'
-                                    ? 'bg-red-500 text-white focus:ring-red-300'
-                                    : 'bg-yellow-500 text-white focus:ring-yellow-300'
+                                    ? 'bg-[#ff4f5e] text-white focus:ring-[#ff4f5e]'
+                                    : 'bg-[#f5b841] text-white focus:ring-[#f5b841]'
                                   : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
                               }`}
                             >
