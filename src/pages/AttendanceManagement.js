@@ -837,6 +837,81 @@ const AttendanceManagement = () => {
     }
   };
 
+  // 오전 출석 반영 함수
+  const applyMorningAttendance = async () => {
+    const formattedDate = new Date(date).toISOString().split('T')[0];
+
+    try {
+      // 같은 날짜의 오전 출석 데이터 가져오기
+      const { data: morningData, error: morningError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('date', formattedDate)
+        .eq('event_type', 'am')
+        .single();
+
+      if (morningError || !morningData) {
+        alert('해당 날짜에 오전 출석 데이터가 없습니다.');
+        return;
+      }
+
+      if (!morningData.attendance_data || !morningData.attendance_data.list) {
+        alert('오전 출석 데이터가 비어있습니다.');
+        return;
+      }
+
+      // 현재 오후 출석 데이터 업데이트
+      const updatedList = attendance.list.map((pmMember) => {
+        // 오전 데이터에서 같은 멤버 찾기
+        const amMember = morningData.attendance_data.list.find(
+          (am) => am.id === pmMember.id
+        );
+
+        if (amMember) {
+          return {
+            ...pmMember,
+            status: amMember.status,
+            reason: amMember.reason || ''
+          };
+        }
+        return pmMember;
+      });
+
+      const updatedAttendance = {
+        ...attendance,
+        list: updatedList,
+        attendance: updatedList.filter((item) => item.status === 'present').length,
+        absent: updatedList.filter((item) => item.status === 'absent').length,
+        excused: updatedList.filter((item) => item.status === 'excused').length,
+      };
+
+      setAttendance(updatedAttendance);
+
+      // changes에 추가
+      const newChanges = {};
+      updatedList.forEach(member => {
+        const amMember = morningData.attendance_data.list.find(am => am.id === member.id);
+        if (amMember) {
+          newChanges[member.id] = {
+            id: member.id,
+            status: amMember.status,
+            reason: amMember.reason || ''
+          };
+        }
+      });
+
+      setChanges((prev) => ({
+        ...prev,
+        ...newChanges,
+      }));
+
+      alert('오전 출석 데이터가 반영되었습니다. "변경사항 저장" 버튼을 눌러주세요.');
+    } catch (error) {
+      console.error('오전 출석 반영 중 오류:', error);
+      alert('오전 출석 데이터 반영 중 오류가 발생했습니다.');
+    }
+  };
+
   // 결석/공결 리스트를 가져오는 함수
   const getAbsentList = (status) => {
     return filteredMembers
@@ -981,7 +1056,7 @@ const AttendanceManagement = () => {
             <div className="flex items-center justify-center w-full sm:w-auto space-x-2">
               <div className="flex rounded-lg shadow-sm">
                 <button
-                  className={`px-3 py-1 text-sm font-semibold rounded-l-lg ${
+                  className={`px-3 py-1 text-xs font-semibold rounded-l-md ${
                     timeOfDay === 'am'
                       ? 'bg-black text-white'
                       : availableEvents.am
@@ -994,7 +1069,7 @@ const AttendanceManagement = () => {
                   오전
                 </button>
                 <button
-                  className={`px-3 py-1 text-sm font-semibold ${
+                  className={`px-3 py-1 text-xs font-semibold ${
                     timeOfDay === 'pm'
                       ? 'bg-black text-white'
                       : availableEvents.pm
@@ -1007,7 +1082,7 @@ const AttendanceManagement = () => {
                   오후
                 </button>
                 <button
-                  className={`px-3 py-1 text-sm font-semibold rounded-r-lg ${
+                  className={`px-3 py-1 text-xs font-semibold rounded-r-md ${
                     timeOfDay === 'event'
                       ? 'bg-black text-white'
                       : availableEvents.event
@@ -1023,7 +1098,7 @@ const AttendanceManagement = () => {
 
               <button
                 onClick={handleDateSearch}
-                className="px-3 py-1 text-sm font-semibold text-white bg-black rounded-lg hover:bg-gray-800 focus:ring-2 transition-colors"
+                className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
               >
                 조회
               </button>
@@ -1033,10 +1108,19 @@ const AttendanceManagement = () => {
           <div className="flex space-x-2">
             <button
               onClick={syncMembers}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+              className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
             >
-              멤버 최신화
+              멤버 동기화
             </button>
+
+            {timeOfDay === 'pm' && (
+              <button
+                onClick={applyMorningAttendance}
+                className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+              >
+                오전 출석 반영
+              </button>
+            )}
 
             {Object.keys(changes).length > 0 && (
               <button
@@ -1061,55 +1145,55 @@ const AttendanceManagement = () => {
         ) : (
           <>
             {/* 통합 통계 섹션 */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <div className="bg-white rounded-lg shadow-md p-3 mb-2">
               {/* 상단 통계 */}
-              <div className="grid grid-cols-4 gap-0 divide-x divide-gray-200">
-                <div className="p-2 sm:p-4">
-                  <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">
+              <div className="grid grid-cols-4 gap-0">
+                <div className="p-1 sm:p-2">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-700 mb-1 sm:mb-2">
                     {groupFilter === 'all' ? '전체' : groupFilter}
                   </h3>
                   <p className="text-xl sm:text-2xl font-bold text-black">
                     {filteredMembers.length}명
                   </p>
                 </div>
-                <div className="p-2 sm:p-4">
+                <div className="p-1 sm:p-2">
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">출석</h3>
                   <p className="text-xs text-gray-400">연습 일정에 참석</p>
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                    <p className="text-xl sm:text-2xl font-bold text-[#2cb67d]">
+                  <div className="flex items-center">
+                    <p className="text-xl sm:text-2xl font-bold text-[#2cb67d] mr-2">
                       {filteredMembers.filter(item => item.status === 'present').length}명
                     </p>
-                    <p className="text-xs sm:text-lg text-[#2cb67d]">
+                    <p className="text-xs sm:text-sm text-[#2cb67d]">
                       ({calculateStats(filteredMembers).presentRate}%)
                     </p>
                   </div>
                 </div>
                 <div 
-                  className="p-2 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-1 sm:p-2 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => setShowAbsentModal(true)}
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">결석</h3>
                   <p className="text-xs text-gray-400">무단으로 결석</p>
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                    <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e]">
+                  <div className="flex items-center">
+                    <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e] mr-2">
                       {filteredMembers.filter(item => item.status === 'absent').length}명
                     </p>
-                    <p className="text-xs sm:text-lg text-[#ff4f5e]">
+                    <p className="text-xs sm:text-sm text-[#ff4f5e]">
                       ({calculateStats(filteredMembers).absentRate}%)
                     </p>
                   </div>
                 </div>
                 <div 
-                  className="p-2 sm:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-1 sm:p-2 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => setShowExcusedModal(true)}
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">공결</h3>
                   <p className="text-xs text-gray-400">합당한 결석사유 알림</p>  
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-                    <p className="text-xl sm:text-2xl font-bold text-[#f5b841]">
+                  <div className="flex items-center">
+                    <p className="text-xl sm:text-2xl font-bold text-[#f5b841] mr-2">
                       {filteredMembers.filter(item => item.status === 'excused').length}명
                     </p>
-                    <p className="text-xs sm:text-lg text-[#f5b841]">
+                    <p className="text-xs sm:text-sm text-[#f5b841]">
                       ({calculateStats(filteredMembers).excusedRate}%)
                     </p>
                   </div>
@@ -1119,12 +1203,12 @@ const AttendanceManagement = () => {
 
               {/* 그룹별 통계 (전체 필터 시) */}
               {groupFilter === 'all' && tagFilter === 'all' && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-2 pt-4 border-t border-gray-200">
                   <button
                     onClick={() => setIsGroupStatsOpen(!isGroupStatsOpen)}
-                    className="w-full flex justify-between items-center text-lg font-semibold text-gray-700 mb-4 focus:outline-none"
+                    className="w-full flex justify-between items-center font-semibold text-gray-700 mb-4 focus:outline-none"
                   >
-                    <div><span>그룹별 통계</span><span className="text-xs text-gray-500 ml-2">({date} ({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })}) {timeOfDay === 'am' ? '오전' : timeOfDay === 'pm' ? '오후' : '행사'})</span></div>
+                    <div><span className="text-sm sm:text-base">그룹별 통계</span><span className="text-xs text-gray-500 ml-2">({date} ({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })}) {timeOfDay === 'am' ? '오전' : timeOfDay === 'pm' ? '오후' : '행사'})</span></div>
                     <svg
                       className={`w-6 h-6 transform transition-transform duration-200 ${
                         isGroupStatsOpen ? 'rotate-180' : ''
@@ -1205,7 +1289,7 @@ const AttendanceManagement = () => {
               )}
             </div>
 
-            <div className="flex flex-col space-y-3 mb-4">
+            <div className="flex flex-col space-y-2 my-4">
               <div>
                 <div className="flex flex-wrap gap-1.5 items-center border-b border-gray-200 pb-2">
                 <h3 className="text-xs font-semibold text-gray-600 mr-2">그룹 필터</h3>
