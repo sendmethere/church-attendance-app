@@ -263,8 +263,8 @@ const MemberManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
-      <div className="w-full max-w-4xl px-2 sm:px-4">
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="w-full">
         <div className="flex flex-col sm:flex-row justify-center items-center mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">찬양대 명부 관리</h1>
         </div>
@@ -290,20 +290,20 @@ const MemberManagement = () => {
         </div>
 
         <div className="mb-6">
-          <div className="flex flex-col space-y-4 mb-4">
+          <div className="flex flex-col space-y-3 mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">그룹 필터</h3>
-              <div className="flex flex-wrap gap-2">
+              <h3 className="text-xs font-semibold text-gray-600 mb-1.5">그룹 필터</h3>
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => handleGroupFilterChange('all')}
-                  className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                  className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                     groupFilter === 'all'
-                      ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                      : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                   }`}
                 >
                   <span>전체</span>
-                  <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                  <span className="ml-1.5 bg-white bg-opacity-25 px-1.5 py-0.5 rounded text-[10px]">
                     {getMemberCountByGroup('all')}
                   </span>
                 </button>
@@ -311,17 +311,17 @@ const MemberManagement = () => {
                   <button
                     key={group}
                     onClick={() => handleGroupFilterChange(group)}
-                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                    className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                       groupFilter === group
-                        ? 'bg-blue-500 text-white focus:ring focus:ring-blue-300'
-                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                     }`}
                   >
                     <span>{group}</span>
-                    <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] ${
                       groupFilter === group
-                        ? 'bg-white bg-opacity-20'
-                        : 'bg-white bg-opacity-50'
+                        ? 'bg-white bg-opacity-25'
+                        : 'bg-white'
                     }`}>
                       {getMemberCountByGroup(group)}
                     </span>
@@ -331,18 +331,18 @@ const MemberManagement = () => {
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">태그 필터</h3>
-              <div className="flex flex-wrap gap-2">
+              <h3 className="text-xs font-semibold text-gray-600 mb-1.5">태그 필터</h3>
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => handleTagFilterChange('all')}
-                  className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                  className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                     tagFilter === 'all'
-                      ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
-                      : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                   }`}
                 >
                   <span>전체</span>
-                  <span className="ml-1.5 sm:ml-2 bg-white bg-opacity-20 px-1.5 sm:px-2 py-0.5 rounded-full text-xs">
+                  <span className="ml-1.5 bg-white bg-opacity-25 px-1.5 py-0.5 rounded text-[10px]">
                     {getMemberCountByTag('all')}
                   </span>
                 </button>
@@ -350,17 +350,17 @@ const MemberManagement = () => {
                   <button
                     key={tag}
                     onClick={() => handleTagFilterChange(tag)}
-                    className={`px-3 py-1 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg shadow-md flex items-center ${
+                    className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                       tagFilter === tag
-                        ? 'bg-purple-500 text-white focus:ring focus:ring-purple-300'
-                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                     }`}
                   >
                     <span>{tag}</span>
-                    <span className={`ml-1.5 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] ${
                       tagFilter === tag
-                        ? 'bg-white bg-opacity-20'
-                        : 'bg-white bg-opacity-50'
+                        ? 'bg-white bg-opacity-25'
+                        : 'bg-white'
                     }`}>
                       {getMemberCountByTag(tag)}
                     </span>

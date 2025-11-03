@@ -24,7 +24,7 @@ const Navbar = () => {
   return (
     <nav className="bg-white shadow-md hide-on-print">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-12">
           <div className="flex">
             <div className="flex-shrink-0 hidden sm:flex items-center">
               <img
