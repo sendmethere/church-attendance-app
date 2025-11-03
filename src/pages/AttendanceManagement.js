@@ -1158,9 +1158,9 @@ const AttendanceManagement = () => {
                 </div>
                 <div className="p-1 sm:p-2">
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">출석</h3>
-                  <p className="text-xs text-gray-400">연습 일정에 참석</p>
-                  <div className="flex items-center">
-                    <p className="text-xl sm:text-2xl font-bold text-[#2cb67d] mr-2">
+                  <p className="text-xs text-gray-400">연습 일정 참석</p>
+                  <div className="flex flex-col">
+                    <p className="text-xl sm:text-2xl font-bold text-[#2cb67d] mb-1">
                       {filteredMembers.filter(item => item.status === 'present').length}명
                     </p>
                     <p className="text-xs sm:text-sm text-[#2cb67d]">
@@ -1174,8 +1174,8 @@ const AttendanceManagement = () => {
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">결석</h3>
                   <p className="text-xs text-gray-400">무단으로 결석</p>
-                  <div className="flex items-center">
-                    <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e] mr-2">
+                  <div className="flex flex-col">
+                    <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e] mb-1">
                       {filteredMembers.filter(item => item.status === 'absent').length}명
                     </p>
                     <p className="text-xs sm:text-sm text-[#ff4f5e]">
@@ -1189,8 +1189,8 @@ const AttendanceManagement = () => {
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">공결</h3>
                   <p className="text-xs text-gray-400">합당한 결석사유 알림</p>  
-                  <div className="flex items-center">
-                    <p className="text-xl sm:text-2xl font-bold text-[#f5b841] mr-2">
+                  <div className="flex flex-col">
+                    <p className="text-xl sm:text-2xl font-bold text-[#f5b841] mb-1">
                       {filteredMembers.filter(item => item.status === 'excused').length}명
                     </p>
                     <p className="text-xs sm:text-sm text-[#f5b841]">
