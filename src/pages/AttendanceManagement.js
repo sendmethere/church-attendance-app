@@ -153,7 +153,7 @@ const AttendanceManagement = () => {
     );
 
     // 3. 기본 출석 데이터 구조 생성
-    // - 모든 멤버의 초기 상태를 'present'(출석)로 설정
+    // - 모든 멤버의 초기 상태를 'absent'(결석)로 설정
     // - 출석/결석/공결 카운트 초기화
     const defaultData = {
       attendance: activeMembers.length,  // 전체 인원 수
@@ -164,7 +164,7 @@ const AttendanceManagement = () => {
         name: member.name,
         group: member.group,
         tags: member.tags || [],
-        status: 'present',               // 초기 상태는 모두 출석
+        status: 'absent',               // 초기 상태는 모두 결석
         reason: '',                      // 사유는 빈 문자열로 초기화
       })),
     };

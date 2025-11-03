@@ -103,6 +103,7 @@ function Statistics() {
   const [yearPeriod, setYearPeriod] = useState('full'); // 'full', 'first', 'second', 'q1', 'q2', 'q3', 'q4'
   const [totalStats, setTotalStats] = useState({});
   const [showGroupMonthlyStats, setShowGroupMonthlyStats] = useState(false);
+  const [showGroupQuarterlyStats, setShowGroupQuarterlyStats] = useState(false);
   const [selectedEventType, setSelectedEventType] = useState('all'); // 'all', 'am', 'pm', 'event'
   const [showAbsenceReasons, setShowAbsenceReasons] = useState(false); // 새로운 상태 추가
   const [absenceSortType, setAbsenceSortType] = useState('none'); // 'none', 'absence', 'excused'
@@ -800,7 +801,9 @@ function Statistics() {
       <div className="p-6">
         <Space className="w-full justify-between mb-4">
           <Title level={2}>
-            {selectedGroup === 'all' ? '' : selectedGroup + ' '}출석 통계 
+            {selectedGroup === 'all' ? '' : selectedGroup + ' '}
+            {showGroupQuarterlyStats ? '부서별 분기별 통계' : showGroupMonthlyStats ? '부서별 월별 통계' : '출석 통계'}
+            {' '}
             ({selectedYear}년 {viewType === 'year' 
               ? (yearPeriod === 'first' 
                   ? ' 상반기' 
@@ -837,6 +840,7 @@ function Statistics() {
                   setViewType('year');
                   setYearPeriod('full');
                   setShowGroupMonthlyStats(false);
+                  setShowGroupQuarterlyStats(false);
                 }}
                 className={viewType === 'year' ? 'bg-black text-white hover:bg-gray-800' : ''}
                 style={viewType === 'year' ? selectedButtonStyle : customButtonStyle}
@@ -845,7 +849,10 @@ function Statistics() {
               </Button>
               <Button
                 type={viewType === 'month' ? 'default' : 'default'}
-                onClick={() => setViewType('month')}
+                onClick={() => {
+                  setViewType('month');
+                  setShowGroupQuarterlyStats(false);
+                }}
                 className={viewType === 'month' ? 'bg-black text-white hover:bg-gray-800' : ''}
                 style={viewType === 'month' ? selectedButtonStyle : customButtonStyle}
               >
@@ -874,6 +881,7 @@ function Statistics() {
               type={showGroupMonthlyStats ? 'default' : 'default'}
               onClick={() => {
                 setShowGroupMonthlyStats(!showGroupMonthlyStats);
+                setShowGroupQuarterlyStats(false);
                 setShowAbsenceReasons(false);
                 if (!showGroupMonthlyStats) {
                   setViewType('month');
@@ -885,10 +893,29 @@ function Statistics() {
               부서별 월별 통계
             </Button>
             <Button
+              type={showGroupQuarterlyStats ? 'default' : 'default'}
+              onClick={() => {
+                setShowGroupQuarterlyStats(!showGroupQuarterlyStats);
+                setShowGroupMonthlyStats(false);
+                setShowAbsenceReasons(false);
+                if (!showGroupQuarterlyStats) {
+                  setViewType('year');
+                  if (yearPeriod === 'full' || yearPeriod === 'first' || yearPeriod === 'second') {
+                    setYearPeriod('q1');
+                  }
+                }
+              }}
+              className={showGroupQuarterlyStats ? 'bg-black text-white hover:bg-gray-800' : ''}
+              style={showGroupQuarterlyStats ? selectedButtonStyle : customButtonStyle}
+            >
+              부서별 분기별 통계
+            </Button>
+            <Button
               type={showAbsenceReasons ? 'default' : 'default'}
               onClick={() => {
                 setShowAbsenceReasons(!showAbsenceReasons);
                 setShowGroupMonthlyStats(false);
+                setShowGroupQuarterlyStats(false);
               }}
               className={showAbsenceReasons ? 'bg-black text-white hover:bg-gray-800' : ''}
               style={showAbsenceReasons ? selectedButtonStyle : customButtonStyle}
@@ -908,7 +935,10 @@ function Statistics() {
               <Space wrap>
                 <Button
                   type={yearPeriod === 'full' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('full')}
+                  onClick={() => {
+                    setYearPeriod('full');
+                    setShowGroupQuarterlyStats(false);
+                  }}
                   className={yearPeriod === 'full' ? 'bg-black text-white hover:bg-gray-800' : ''}
                   style={yearPeriod === 'full' ? selectedButtonStyle : customButtonStyle}
                 >
@@ -916,7 +946,10 @@ function Statistics() {
                 </Button>
                 <Button
                   type={yearPeriod === 'first' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('first')}
+                  onClick={() => {
+                    setYearPeriod('first');
+                    setShowGroupQuarterlyStats(false);
+                  }}
                   className={yearPeriod === 'first' ? 'bg-black text-white hover:bg-gray-800' : ''}
                   style={yearPeriod === 'first' ? selectedButtonStyle : customButtonStyle}
                 >
@@ -924,7 +957,10 @@ function Statistics() {
                 </Button>
                 <Button
                   type={yearPeriod === 'second' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('second')}
+                  onClick={() => {
+                    setYearPeriod('second');
+                    setShowGroupQuarterlyStats(false);
+                  }}
                   className={yearPeriod === 'second' ? 'bg-black text-white hover:bg-gray-800' : ''}
                   style={yearPeriod === 'second' ? selectedButtonStyle : customButtonStyle}
                 >
@@ -1077,6 +1113,31 @@ function Statistics() {
                 scroll={{ x: 'max-content' }}
               />
             </Space>
+          </div>
+        ) : showGroupQuarterlyStats ? (
+          <div className="mb-6">
+            <Title level={4} className="mb-4">
+              {selectedYear}년 {
+                yearPeriod === 'q1' ? '1분기' :
+                yearPeriod === 'q2' ? '2분기' :
+                yearPeriod === 'q3' ? '3분기' :
+                yearPeriod === 'q4' ? '4분기' : ''
+              } 부서별 통계
+              {selectedEventType !== 'all' && (
+                <span className="ml-2 text-base">
+                  ({selectedEventType === 'am' ? '오전' : selectedEventType === 'pm' ? '오후' : '행사'})
+                </span>
+              )}
+            </Title>
+            <Table
+              columns={groupMonthlyColumns}
+              dataSource={getGroupMonthlyData()}
+              pagination={false}
+              size="small"
+              bordered
+              style={{ maxWidth: '600px' }}
+              rowClassName={(record) => record.key === 'total' ? 'font-bold bg-gray-50' : ''}
+            />
           </div>
         ) : showGroupMonthlyStats ? (
           <div className="mb-6">
