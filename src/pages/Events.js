@@ -343,53 +343,68 @@ function Events() {
                 </thead>
                 <tbody>
                   {events.length > 0 ? (
-                    events.map((event) => (
-                      <tr key={event.id} className="border-b hover:bg-gray-100">
-                        <td className="px-2 py-2 sm:px-4">{event.name}</td>
-                        <td className="px-2 py-2 sm:px-4">
-                          {new Date(event.date).toLocaleDateString('ko-KR', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            weekday: 'long'
-                          })}
-                        </td>
-                        <td className="px-2 py-2 sm:px-4">
-                          <span className={`px-2 py-1 rounded-full text-sm ${getEventTypeColor(event.event_type)}`}>
-                            {getEventTypeText(event.event_type)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2 sm:px-4 text-center">
-                          {attendanceCounts[event.id]?.present || 0}
-                        </td>
-                        <td className="px-2 py-2 sm:px-4 text-center">
-                          {attendanceCounts[event.id]?.absent || 0}
-                        </td>
-                        <td className="px-2 py-2 sm:px-4 text-center">
-                          {attendanceCounts[event.id]?.excused || 0}
-                        </td>
-                        <td className="px-2 py-2 sm:px-4">
-                          <button
-                            onClick={() => handleEdit(event)}
-                            className="text-[#2cb67d] hover:text-[#ffd700] mr-2"
-                          >
-                            수정
-                          </button>
-                          <button
-                            onClick={() => handleDelete(event.id)}
-                            className="text-[#ff4f5e] mr-2"
-                          >
-                            삭제
-                          </button>
-                          <button
-                            onClick={() => handleResetAttendance(event.id)}
-                            className="text-[#f5b841] hover:text-[#ffd700]"
-                          >
-                            초기화
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    events.map((event, index) => {
+                      const currentMonth = new Date(event.date).getMonth() + 1;
+                      const previousMonth = index > 0 ? new Date(events[index - 1].date).getMonth() + 1 : null;
+                      const showMonthHeader = index === 0 || currentMonth !== previousMonth;
+
+                      return (
+                        <React.Fragment key={event.id}>
+                          {showMonthHeader && (
+                            <tr className="bg-gray-100">
+                              <td colSpan="7" className="px-2 py-2 sm:px-4 font-bold text-gray-700">
+                                {currentMonth}월
+                              </td>
+                            </tr>
+                          )}
+                          <tr className="border-b hover:bg-gray-100">
+                            <td className="px-2 py-2 sm:px-4">{event.name}</td>
+                            <td className="px-2 py-2 sm:px-4">
+                              {new Date(event.date).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                weekday: 'long'
+                              })}
+                            </td>
+                            <td className="px-2 py-2 sm:px-4">
+                              <span className={`px-2 py-1 rounded-full text-sm ${getEventTypeColor(event.event_type)}`}>
+                                {getEventTypeText(event.event_type)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 sm:px-4 text-center">
+                              {attendanceCounts[event.id]?.present || 0}
+                            </td>
+                            <td className="px-2 py-2 sm:px-4 text-center">
+                              {attendanceCounts[event.id]?.absent || 0}
+                            </td>
+                            <td className="px-2 py-2 sm:px-4 text-center">
+                              {attendanceCounts[event.id]?.excused || 0}
+                            </td>
+                            <td className="px-2 py-2 sm:px-4">
+                              <button
+                                onClick={() => handleEdit(event)}
+                                className="text-[#2cb67d] hover:text-[#ffd700] mr-2"
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={() => handleDelete(event.id)}
+                                className="text-[#ff4f5e] mr-2"
+                              >
+                                삭제
+                              </button>
+                              <button
+                                onClick={() => handleResetAttendance(event.id)}
+                                className="text-[#f5b841] hover:text-[#ffd700]"
+                              >
+                                초기화
+                              </button>
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan="7" className="px-2 py-4 sm:px-4 text-center text-gray-500">

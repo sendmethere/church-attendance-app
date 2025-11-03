@@ -108,7 +108,7 @@ function Statistics() {
   const [showAbsenceReasons, setShowAbsenceReasons] = useState(false); // 새로운 상태 추가
   const [absenceSortType, setAbsenceSortType] = useState('none'); // 'none', 'absence', 'excused'
 
-  const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+  const groupOrder = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
 
   useEffect(() => {
     fetchData();

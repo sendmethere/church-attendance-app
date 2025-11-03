@@ -34,7 +34,7 @@ const MemberManagement = () => {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [editingTags, setEditingTags] = useState([]);
 
-  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+  const groups = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
   const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
 
   useEffect(() => {
@@ -44,16 +44,26 @@ const MemberManagement = () => {
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from('members')
-      .select('*')
-      .order('group')
-      .order('name');
+      .select('*');
 
     if (error) {
       console.error('Error fetching members:', error);
       return;
     }
 
-    setMembers(data);
+    // 커스텀 순서로 정렬
+    const sortedMembers = data.sort((a, b) => {
+      const groupIndexA = groups.indexOf(a.group);
+      const groupIndexB = groups.indexOf(b.group);
+      
+      if (groupIndexA !== groupIndexB) {
+        return groupIndexA - groupIndexB;
+      }
+      
+      return a.name.localeCompare(b.name, 'ko');
+    });
+
+    setMembers(sortedMembers);
   };
 
   const handleGroupFilterChange = (group) => {
@@ -94,13 +104,20 @@ const MemberManagement = () => {
     if (tag === 'all') {
       return activeMembers.length;
     }
+    if (tag === 'none') {
+      return activeMembers.filter(member => !member.tags || member.tags.length === 0).length;
+    }
     return activeMembers.filter(member => member.tags?.includes(tag)).length;
   };
 
   const filteredMembers = members
     .filter((member) => showInactive ? true : isActiveMember(member))
     .filter((member) => groupFilter === 'all' || member.group === groupFilter)
-    .filter((member) => tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter)));
+    .filter((member) => {
+      if (tagFilter === 'all') return true;
+      if (tagFilter === 'none') return !member.tags || member.tags.length === 0;
+      return member.tags && member.tags.includes(tagFilter);
+    });
 
   const handleEditDates = (member) => {
     setEditingMember(member);
@@ -366,6 +383,23 @@ const MemberManagement = () => {
                     </span>
                   </button>
                 ))}
+                <button
+                  onClick={() => handleTagFilterChange('none')}
+                  className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
+                    tagFilter === 'none'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+                  }`}
+                >
+                  <span>태그 없음</span>
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] ${
+                    tagFilter === 'none'
+                      ? 'bg-white bg-opacity-25'
+                      : 'bg-white'
+                  }`}>
+                    {getMemberCountByTag('none')}
+                  </span>
+                </button>
               </div>
             </div>
 

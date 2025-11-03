@@ -27,8 +27,24 @@ const AttendanceManagement = () => {
   const [showAbsentModal, setShowAbsentModal] = useState(false);
   const [showExcusedModal, setShowExcusedModal] = useState(false);
 
-  const groups = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+  const groups = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
   const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
+
+  // 그룹/태그 축약 표시 함수
+  const getShortName = (name) => {
+    const shortNames = {
+      '소프라노': '소',
+      '알토': '알',
+      '테너': '테',
+      '베이스': '베',
+      '기악부': '기악',
+      '중창A': 'A',
+      '중창B': 'B',
+      '중창C': 'C',
+      '엘벧엘': '엘'
+    };
+    return shortNames[name] || name;
+  };
 
   const isSunday = (dateString) => {
     const date = new Date(dateString);
@@ -58,9 +74,7 @@ const AttendanceManagement = () => {
       .from('members')
       .select('*')
       .lte('join_date', formattedDate)
-      .or(`out_date.gt.${formattedDate},out_date.is.null`)
-      .order('group')
-      .order('name');
+      .or(`out_date.gt.${formattedDate},out_date.is.null`);
 
     if (error) {
       console.error(error);
@@ -72,7 +86,19 @@ const AttendanceManagement = () => {
       isDateInRange(formattedDate, member.join_date, member.out_date)
     );
 
-    setMembers(activeMembers);
+    // 커스텀 순서로 정렬
+    const sortedMembers = activeMembers.sort((a, b) => {
+      const groupIndexA = groups.indexOf(a.group);
+      const groupIndexB = groups.indexOf(b.group);
+      
+      if (groupIndexA !== groupIndexB) {
+        return groupIndexA - groupIndexB;
+      }
+      
+      return a.name.localeCompare(b.name, 'ko');
+    });
+
+    setMembers(sortedMembers);
   };
 
   const fetchAttendance = async () => {
@@ -429,11 +455,20 @@ const AttendanceManagement = () => {
     localStorage.setItem('selectedTag', tag);
   };
 
-  const filteredMembers = attendance.list?.filter((member) => {
+  const filteredMembers = (attendance.list?.filter((member) => {
     const groupMatch = groupFilter === 'all' || member.group === groupFilter;
     const tagMatch = tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter));
     return groupMatch && tagMatch;
-  }) || [];
+  }) || []).sort((a, b) => {
+    const groupIndexA = groups.indexOf(a.group);
+    const groupIndexB = groups.indexOf(b.group);
+    
+    if (groupIndexA !== groupIndexB) {
+      return groupIndexA - groupIndexB;
+    }
+    
+    return a.name.localeCompare(b.name, 'ko');
+  });
 
   // 통계 계산 함수 추가
   const calculateStats = (memberList) => {
@@ -625,19 +660,29 @@ const AttendanceManagement = () => {
 
     try {
       // 1. 현재 활동 중인 멤버 목록 가져오기
-      const { data: activeMembers, error: memberError } = await supabase
+      const { data: membersData, error: memberError } = await supabase
         .from('members')
         .select('*')
         .lte('join_date', formattedDate)
-        .or(`out_date.gt.${formattedDate},out_date.is.null`)
-        .order('group')
-        .order('name');
+        .or(`out_date.gt.${formattedDate},out_date.is.null`);
 
       if (memberError) {
         console.error('멤버 데이터 조회 실패:', memberError);
         alert('멤버 데이터를 가져오는데 실패했습니다.');
         return;
       }
+
+      // 커스텀 순서로 정렬
+      const activeMembers = membersData.sort((a, b) => {
+        const groupIndexA = groups.indexOf(a.group);
+        const groupIndexB = groups.indexOf(b.group);
+        
+        if (groupIndexA !== groupIndexB) {
+          return groupIndexA - groupIndexB;
+        }
+        
+        return a.name.localeCompare(b.name, 'ko');
+      });
 
       // 2. 현재 출석부 데이터 가져오기
       const { data: currentAttendance, error: attendanceError } = await supabase
@@ -988,7 +1033,7 @@ const AttendanceManagement = () => {
           <div className="flex space-x-2">
             <button
               onClick={syncMembers}
-              className="px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
             >
               멤버 최신화
             </button>
@@ -1029,7 +1074,7 @@ const AttendanceManagement = () => {
                 </div>
                 <div className="p-2 sm:p-4">
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">출석</h3>
-                  <p className="text-xs text-gray-400">일정에 참석함</p>
+                  <p className="text-xs text-gray-400">연습 일정에 참석</p>
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
                     <p className="text-xl sm:text-2xl font-bold text-[#2cb67d]">
                       {filteredMembers.filter(item => item.status === 'present').length}명
@@ -1044,7 +1089,7 @@ const AttendanceManagement = () => {
                   onClick={() => setShowAbsentModal(true)}
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">결석</h3>
-                  <p className="text-xs text-gray-400">무단으로 결석함</p>
+                  <p className="text-xs text-gray-400">무단으로 결석</p>
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
                     <p className="text-xl sm:text-2xl font-bold text-[#ff4f5e]">
                       {filteredMembers.filter(item => item.status === 'absent').length}명
@@ -1059,7 +1104,7 @@ const AttendanceManagement = () => {
                   onClick={() => setShowExcusedModal(true)}
                 >
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-700 sm:mb-1">공결</h3>
-                  <p className="text-xs text-gray-400">합당한 결석사유를 알림</p>  
+                  <p className="text-xs text-gray-400">합당한 결석사유 알림</p>  
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
                     <p className="text-xl sm:text-2xl font-bold text-[#f5b841]">
                       {filteredMembers.filter(item => item.status === 'excused').length}명
@@ -1187,7 +1232,7 @@ const AttendanceManagement = () => {
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                       }`}
                     >
-                      <span>{group}</span>
+                      <span>{getShortName(group)}</span>
                       <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] hidden sm:block ${
                         groupFilter === group
                           ? 'bg-white bg-opacity-25'
@@ -1227,7 +1272,7 @@ const AttendanceManagement = () => {
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                       }`}
                     >
-                      <span>{tag}</span>
+                      <span>{getShortName(tag)}</span>
                       <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] hidden sm:block ${
                         tagFilter === tag
                           ? 'bg-white bg-opacity-25'
@@ -1258,14 +1303,14 @@ const AttendanceManagement = () => {
                       <td className={`${groupFilter !== 'all' || tagFilter !== 'all' ? 'hidden sm:table-cell' : ''} px-4 py-2 whitespace-nowrap`}>
                         <div className="flex flex-wrap gap-1">
                           <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                            {member.group}
+                            {getShortName(member.group)}
                           </span>
                           {member.tags && member.tags.map((tag, index) => (
                             <span
                               key={index}
                               className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full"
                             >
-                              {tag}
+                              {getShortName(tag)}
                             </span>
                           ))}
                         </div>
