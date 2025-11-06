@@ -214,7 +214,7 @@ const Dashboard = () => {
         {/* 전체 컨테이너 */}
         <div className="bg-white rounded-lg shadow-md p-6">
           {/* 헤더 */}
-          <div className="mb-6 flex justify-between items-start">
+          <div className="mb-2 flex justify-between items-start">
     <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
                 전주교회 찬양대
@@ -249,7 +249,7 @@ const Dashboard = () => {
           </div>
 
           {/* Divider */}
-          <div className="my-6 border-t border-gray-200"></div>
+          <div className="mb-4 border-t border-gray-200"></div>
 
           {/* 메인 콘텐츠 */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
@@ -291,27 +291,27 @@ const Dashboard = () => {
                 {memberViewMode === 'table' ? (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">소프라노</span>
+                      <span className="text-base text-gray-700">소프라노</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.soprano}명</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">알토</span>
+                      <span className="text-base text-gray-700">알토</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.alto}명</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">테너</span>
+                      <span className="text-base text-gray-700">테너</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.tenor}명</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">베이스</span>
+                      <span className="text-base text-gray-700">베이스</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.bass}명</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">기악부</span>
+                      <span className="text-base text-gray-700">기악부</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.instrument}명</span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">{getGroupDisplayName('기타')}</span>
+                      <span className="text-base text-gray-700">{getGroupDisplayName('기타')}</span>
                       <span className="text-base font-semibold text-gray-800">{memberStats.other}명</span>
                     </div>
                   </div>
@@ -364,24 +364,24 @@ const Dashboard = () => {
                 )}
 
                 {/* 구분선 */}
-                <div className="border-t border-gray-300 my-3"></div>
+                <div className="my-3"></div>
 
                 {/* 중창단 - 2열 그리드 */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-sm text-gray-700">중창A</span>
+                    <span className="text-base text-gray-700">중창A</span>
                     <span className="text-base font-semibold text-purple-700">{memberStats.ensembleA}명</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-sm text-gray-700">중창B</span>
+                    <span className="text-base text-gray-700">중창B</span>
                     <span className="text-base font-semibold text-purple-700">{memberStats.ensembleB}명</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-sm text-gray-700">중창C</span>
+                    <span className="text-base text-gray-700">중창C</span>
                     <span className="text-base font-semibold text-purple-700">{memberStats.ensembleC}명</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-sm text-gray-700">엘벧엘</span>
+                    <span className="text-base text-gray-700">엘벧엘</span>
                     <span className="text-base font-semibold text-purple-700">{memberStats.lbt}명</span>
                   </div>
                 </div>
@@ -391,7 +391,13 @@ const Dashboard = () => {
             {/* 오른쪽: 오늘의 출석 현황 - 오전/오후 2열 */}
             <div className="pt-6 lg:pt-0 lg:pl-6 lg:col-span-2">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-bold text-gray-800">출석 현황</h2>
+                <h2 className="text-xl font-bold text-gray-800">
+                  
+                {new Date(currentDate).toLocaleDateString('ko-KR', {
+                  month: 'long',
+                  day: 'numeric'
+                })} ({new Date(currentDate).toLocaleDateString('ko-KR', { weekday: 'short' })})
+                출석 현황</h2>
                 <div className="flex rounded-lg shadow-sm">
                   <button
                     className={`px-2 py-1 text-xs font-semibold rounded-l-md cursor-pointer ${
@@ -415,12 +421,6 @@ const Dashboard = () => {
                   </button>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-4">
-                {new Date(currentDate).toLocaleDateString('ko-KR', {
-                  month: 'long',
-                  day: 'numeric'
-                })} ({new Date(currentDate).toLocaleDateString('ko-KR', { weekday: 'short' })})
-              </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:divide-x divide-gray-200">
                 {/* 오전 출석 */}
@@ -493,45 +493,44 @@ const Dashboard = () => {
 
                       {/* 오전 그룹별 통계 */}
                       <div className="mt-4">
-                        <h4 className="text-sm font-semibold text-gray-800 mb-2">그룹별</h4>
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200 text-xs">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">그룹</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#2cb67d]">출</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#ff4f5e]">결</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#f5b841]">공</th>
+                                <th className="px-2 py-1 text-left text-sm font-medium text-gray-500">그룹</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#2cb67d]">출</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#ff4f5e]">결</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#f5b841]">공</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {amStats.map(stat => (
                                 <tr key={stat.group} className="hover:bg-gray-50">
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
                                     {getGroupDisplayName(stat.group)}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#2cb67d]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#2cb67d]">
                                     {stat.present}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#ff4f5e]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#ff4f5e]">
                                     {stat.absent}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#f5b841]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#f5b841]">
                                     {stat.excused}
                                   </td>
                                 </tr>
                               ))}
                               <tr className="bg-gray-100 font-semibold">
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
                                   합계
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#2cb67d]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#2cb67d]">
                                   {amAttendance.present}
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#ff4f5e]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#ff4f5e]">
                                   {amAttendance.absent}
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#f5b841]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#f5b841]">
                                   {amAttendance.excused}
                                 </td>
                               </tr>
@@ -613,45 +612,44 @@ const Dashboard = () => {
 
                       {/* 오후 그룹별 통계 */}
                       <div className="mt-4">
-                        <h4 className="text-sm font-semibold text-gray-800 mb-2">그룹별</h4>
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200 text-xs">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">그룹</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#2cb67d]">출</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#ff4f5e]">결</th>
-                                <th className="px-2 py-1 text-center text-xs font-medium text-[#f5b841]">공</th>
+                                <th className="px-2 py-1 text-left text-sm font-medium text-gray-500">그룹</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#2cb67d]">출</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#ff4f5e]">결</th>
+                                <th className="px-2 py-1 text-center text-sm font-medium text-[#f5b841]">공</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {pmStats.map(stat => (
                                 <tr key={stat.group} className="hover:bg-gray-50">
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
                                     {getGroupDisplayName(stat.group)}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#2cb67d]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#2cb67d]">
                                     {stat.present}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#ff4f5e]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#ff4f5e]">
                                     {stat.absent}
                                   </td>
-                                  <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#f5b841]">
+                                  <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#f5b841]">
                                     {stat.excused}
                                   </td>
                                 </tr>
                               ))}
                               <tr className="bg-gray-100 font-semibold">
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
                                   합계
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#2cb67d]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#2cb67d]">
                                   {pmAttendance.present}
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#ff4f5e]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#ff4f5e]">
                                   {pmAttendance.absent}
                                 </td>
-                                <td className="px-2 py-1 whitespace-nowrap text-xs text-center text-[#f5b841]">
+                                <td className="px-2 py-1 whitespace-nowrap text-sm text-center text-[#f5b841]">
                                   {pmAttendance.excused}
                                 </td>
                               </tr>
