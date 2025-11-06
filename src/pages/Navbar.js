@@ -36,6 +36,17 @@ const Navbar = () => {
             
             <div className="flex space-x-8 ml-0 sm:ml-8">
               <Link
+                to="/dashboard"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  isActive('/dashboard')
+                    ? 'border-blue-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                <span className="text-xs">홈</span>
+              </Link>
+
+              <Link
                 to="/attendance"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/attendance')

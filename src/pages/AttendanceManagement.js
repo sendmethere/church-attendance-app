@@ -46,6 +46,11 @@ const AttendanceManagement = () => {
     return shortNames[name] || name;
   };
 
+  // 그룹명 전체 표시 함수
+  const getGroupDisplayName = (name) => {
+    return name === '기타' ? '지휘/기타' : name;
+  };
+
   const isSunday = (dateString) => {
     const date = new Date(dateString);
     return date.getDay() === 0;
@@ -963,7 +968,7 @@ const AttendanceManagement = () => {
                   {list.map((item, index) => (
                     <tr key={index} className="border-b last:border-b-0">
                       <td className="py-2">{item.name}</td>
-                      <td className="py-2">{item.group}</td>
+                      <td className="py-2">{getGroupDisplayName(item.group)}</td>
                       <td className="py-2">{item.reason}</td>
                     </tr>
                   ))}
@@ -1261,7 +1266,7 @@ const AttendanceManagement = () => {
                             return (
                               <tr key={group} className="hover:bg-gray-50">
                                 <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                                  {group}
+                                  {getGroupDisplayName(group)}
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm text-center text-gray-900">
                                   {stats.total}명
