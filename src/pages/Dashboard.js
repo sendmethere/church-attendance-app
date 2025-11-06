@@ -707,7 +707,7 @@ const Dashboard = () => {
             </div>
             <div className="flex-1 overflow-hidden">
               <iframe 
-                src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQoI2cr6ks5Gpvx2MuUMOjC0FTNYz9gEKLxynZBvYhVQYklzHAo5XSEWnicQ3b61AQEN8gpiEYsHmBI/pubhtml?gid=661926174&single=true&widget=true&headers=false"
+                src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQoI2cr6ks5Gpvx2MuUMOjC0FTNYz9gEKLxynZBvYhVQYklzHAo5XSEWnicQ3b61AQEN8gpiEYsHmBI/pubhtml?gid=661926174&amp;single=true&amp;widget=true&amp;headers=false"
                 className="w-full h-full border-0"
                 title="캘린더"
               />
