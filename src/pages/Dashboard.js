@@ -287,102 +287,106 @@ const Dashboard = () => {
                   <span className="text-xl font-bold text-blue-600">{memberStats.total}명</span>
                 </div>
 
-                {/* 파트 - 2열 그리드 또는 차트 */}
-                {memberViewMode === 'table' ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">소프라노</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.soprano}명</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">알토</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.alto}명</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">테너</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.tenor}명</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">베이스</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.bass}명</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">기악부</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.instrument}명</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="text-base text-gray-700">{getGroupDisplayName('기타')}</span>
-                      <span className="text-base font-semibold text-gray-800">{memberStats.other}명</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex justify-center py-4">
-                    <div style={{ width: '250px', height: '250px' }}>
-                      <Pie
-                        data={{
-                          labels: ['소프라노', '알토', '테너', '베이스', '기악부'],
-                          datasets: [{
-                            data: [
-                              memberStats.soprano,
-                              memberStats.alto,
-                              memberStats.tenor,
-                              memberStats.bass,
-                              memberStats.instrument,
-                            ],
-                            backgroundColor: [
-                              '#FFB6C1',  // 소프라노 - 분홍
-                              '#FF6347',  // 알토 - 주홍
-                              '#87CEEB',  // 테너 - 하늘
-                              '#4169E1',  // 베이스 - 남색
-                              '#9966FF',  // 기악부 - 보라
-                            ],
-                            borderWidth: 2,
-                            borderColor: '#fff'
-                          }]
-                        }}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: true,
-                          plugins: {
-                            legend: {
-                              position: 'bottom',
-                              labels: {
-                                font: { size: 10 },
-                                padding: 10
-                              }
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: (context) => `${context.label}: ${context.parsed}명`
+
+                {memberViewMode === 'chart' && (
+                <div className="py-2">
+                    <div className="flex justify-center">
+                      <div style={{ width: '220px', height: '220px' }}>
+                        <Pie
+                          data={{
+                            labels: ['소프라노', '알토', '테너', '베이스', '기악부', '지휘/기타'],
+                            datasets: [{
+                              data: [
+                                memberStats.soprano,
+                                memberStats.alto,
+                                memberStats.tenor,
+                                memberStats.bass,
+                                memberStats.instrument,
+                                memberStats.other,
+                              ],
+                              backgroundColor: [
+                                '#FFB6C1',  // 소프라노 - 분홍
+                                '#FF6347',  // 알토 - 주홍
+                                '#87CEEB',  // 테너 - 하늘
+                                '#4169E1',  // 베이스 - 남색
+                                '#9966FF',  // 기악부 - 보라
+                                '#FFA500',  // 지휘/기타 - 오렌지
+                              ],
+                              borderWidth: 2,
+                              borderColor: '#fff'
+                            }]
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                              legend: {
+                                position: 'bottom',
+                                labels: {
+                                  font: { size: 9 },
+                                  padding: 6
+                                }
+                              },
+                              tooltip: {
+                                callbacks: {
+                                  label: (context) => `${context.label}: ${context.parsed}명`
+                                }
                               }
                             }
-                          }
-                        }}
-                      />
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>)}
+
+                {/* 파트 - 2열 그리드 또는 차트 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>소프라노</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.soprano}명</span>
+                    </div>
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>알토</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.alto}명</span>
+                    </div>
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>테너</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.tenor}명</span>
+                    </div>
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>베이스</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.bass}명</span>
+                    </div>
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>기악부</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.instrument}명</span>
+                    </div>
+                    <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-gray-50 rounded-lg`}>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>{getGroupDisplayName('기타')}</span>
+                      <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-gray-800`}>{memberStats.other}명</span>
                     </div>
                   </div>
-                )}
 
                 {/* 구분선 */}
                 <div className="my-3"></div>
-
+               
                 {/* 중창단 - 2열 그리드 */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-base text-gray-700">중창A</span>
-                    <span className="text-base font-semibold text-purple-700">{memberStats.ensembleA}명</span>
+                <div className={`grid grid-cols-2 gap-2 ${memberViewMode === 'chart' ? 'text-sm' : ''}`}>
+                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창A</span>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleA}명</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-base text-gray-700">중창B</span>
-                    <span className="text-base font-semibold text-purple-700">{memberStats.ensembleB}명</span>
+                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창B</span>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleB}명</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-base text-gray-700">중창C</span>
-                    <span className="text-base font-semibold text-purple-700">{memberStats.ensembleC}명</span>
+                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창C</span>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleC}명</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                    <span className="text-base text-gray-700">엘벧엘</span>
-                    <span className="text-base font-semibold text-purple-700">{memberStats.lbt}명</span>
+                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>엘벧엘</span>
+                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.lbt}명</span>
                   </div>
                 </div>
               </div>

@@ -9,9 +9,26 @@ const convertTableDataToExcel = (tableData) => {
   if (!tableData || tableData.length === 0) return [];
 
   // 날짜 관련 컬럼들을 찾습니다 (키가 '_am', '_pm', '_event'로 끝나는 컬럼들)
-  const dateColumns = Object.keys(tableData[0]).filter(key => 
-    key.endsWith('_am') || key.endsWith('_pm') || key.endsWith('_event')
-  );
+  const dateColumns = Object.keys(tableData[0]).filter(key => {
+    if (!key.endsWith('_am') && !key.endsWith('_pm') && !key.endsWith('_event')) {
+      return false;
+    }
+    
+    // 날짜 부분 추출 (예: '2025-01-05_am' -> '2025-01-05')
+    const dateStr = key.substring(0, key.lastIndexOf('_'));
+    
+    // 날짜 형식 검증 (YYYY-MM-DD)
+    if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return false;
+    }
+    
+    const [, month, day] = dateStr.split('-');
+    const monthNum = parseInt(month);
+    const dayNum = parseInt(day);
+    
+    // 유효한 날짜인지 확인
+    return monthNum > 0 && monthNum <= 12 && dayNum > 0 && dayNum <= 31;
+  });
 
   // 엑셀 헤더 생성
   const headers = [
@@ -22,10 +39,12 @@ const convertTableDataToExcel = (tableData) => {
     '공결',
     // 날짜 컬럼들 추가
     ...dateColumns.map(col => {
-      const [date, type] = col.split('_');
-      const [year, month, day] = date.split('-');
+      const lastUnderscoreIndex = col.lastIndexOf('_');
+      const date = col.substring(0, lastUnderscoreIndex);
+      const type = col.substring(lastUnderscoreIndex + 1);
+      const [, month, day] = date.split('-');
       const typeText = type === 'am' ? '오전' : type === 'pm' ? '오후' : '행사';
-      return `${month}/${day} ${typeText}`;
+      return `${parseInt(month)}/${parseInt(day)} ${typeText}`;
     })
   ];
 
@@ -48,7 +67,10 @@ const convertTableDataToExcel = (tableData) => {
         row.push(value);
       } else {
         // 일반 행의 출석 상태 변환
-        switch (value) {
+        // value가 객체인 경우 (예: { status: 'present', reason: '...' })
+        const status = typeof value === 'object' && value !== null ? value.status : value;
+        
+        switch (status) {
           case 'present':
             value = '○';
             break;

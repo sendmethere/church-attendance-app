@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import supabase from '../supabaseClient';
-import { Table, Typography, ConfigProvider, Select, Space, Button, Tooltip } from 'antd';
-import { getSundaysInPeriod, getSundaysInMonth } from '../utils/dateUtils';
+import { Table, Typography, ConfigProvider, Select, Space, Button, Tooltip, Input } from 'antd';
 import { convertTableDataToExcel, downloadExcel, generateFileName } from '../utils/excelUtils';
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title as ChartTitle, Tooltip as ChartTooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ChartTitle, ChartTooltip, Legend);
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -107,6 +110,10 @@ function Statistics() {
   const [selectedEventType, setSelectedEventType] = useState('all'); // 'all', 'am', 'pm', 'event'
   const [showAbsenceReasons, setShowAbsenceReasons] = useState(false); // 새로운 상태 추가
   const [absenceSortType, setAbsenceSortType] = useState('none'); // 'none', 'absence', 'excused'
+  const [showMemberView, setShowMemberView] = useState(false); // 멤버별 보기
+  const [memberSearchText, setMemberSearchText] = useState(''); // 멤버 검색
+  const [showAttendanceRate, setShowAttendanceRate] = useState(false); // 출석율 통계
+  const [selectedRateRange, setSelectedRateRange] = useState(null); // 선택된 출석율 구간
 
   const groupOrder = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
 
@@ -183,13 +190,20 @@ function Statistics() {
 
   const getEventDates = (attendanceData) => {
     // 날짜와 이벤트 타입을 함께 추적
-    const dateEvents = attendanceData.map(record => ({
-      date: record.date,
-      event_type: record.event_type
-    }));
+    const dateEvents = attendanceData
+      .filter(record => record.date && record.event_type) // 유효한 데이터만 필터링
+      .map(record => ({
+        date: record.date,
+        event_type: record.event_type
+      }));
 
     // 날짜별로 그룹화하여 존재하는 이벤트 타입 기록
     const dateMap = dateEvents.reduce((acc, { date, event_type }) => {
+      // 날짜 형식 검증 (YYYY-MM-DD)
+      if (!date || !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return acc;
+      }
+      
       if (!acc[date]) {
         acc[date] = { date, am: false, pm: false, event: false };
       }
@@ -408,12 +422,26 @@ function Statistics() {
     },
     ...(attendanceData.length > 0 
       ? getEventDates(attendanceData).flatMap(dateInfo => {
+          // 날짜 유효성 재확인
+          if (!dateInfo.date || !dateInfo.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return [];
+          }
+          
+          const [, month, day] = dateInfo.date.split('-');
+          const monthNum = parseInt(month);
+          const dayNum = parseInt(day);
+          
+          // 월과 일이 유효한지 확인
+          if (monthNum === 0 || dayNum === 0 || monthNum > 12 || dayNum > 31) {
+            return [];
+          }
+          
           const columns = [];
           if (dateInfo.am && (selectedEventType === 'all' || selectedEventType === 'am')) {
             columns.push({
               title: () => (
                 <div>
-                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div>{`${monthNum}/${dayNum}`}</div>
                   <div className="text-xs">오전</div>
                 </div>
               ),
@@ -428,7 +456,7 @@ function Statistics() {
             columns.push({
               title: () => (
                 <div>
-                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div>{`${monthNum}/${dayNum}`}</div>
                   <div className="text-xs">오후</div>
                 </div>
               ),
@@ -443,7 +471,7 @@ function Statistics() {
             columns.push({
               title: () => (
                 <div>
-                  <div>{`${parseInt(dateInfo.date.split('-')[1])}/${parseInt(dateInfo.date.split('-')[2])}`}</div>
+                  <div>{`${monthNum}/${dayNum}`}</div>
                   <div className="text-xs">행사</div>
                 </div>
               ),
@@ -734,6 +762,200 @@ function Statistics() {
     return data;
   };
 
+  // 출석율 통계 계산 함수
+  const getAttendanceRateStats = () => {
+    // 각 멤버의 출석율 계산
+    const memberRates = members
+      .filter(member => selectedGroup === 'all' || member.group === selectedGroup)
+      .map(member => {
+        let totalCount = 0;
+        let presentCount = 0;
+
+        attendanceData.forEach(record => {
+          // 선택된 이벤트 타입 필터링
+          if (selectedEventType !== 'all' && record.event_type !== selectedEventType) {
+            return;
+          }
+
+          if (record.data && record.data.list) {
+            const attendance = record.data.list.find(a => a.id === member.id);
+            if (attendance) {
+              totalCount++;
+              if (attendance.status === 'present') {
+                presentCount++;
+              }
+            }
+          }
+        });
+
+        const rate = totalCount > 0 ? (presentCount / totalCount) * 100 : 0;
+        
+        return {
+          id: member.id,
+          name: member.name,
+          group: member.group,
+          presentCount,
+          totalCount,
+          rate: parseFloat(rate.toFixed(1))
+        };
+      });
+
+    // 구간별로 그룹화
+    const ranges = [
+      { label: '0-10%', min: 0, max: 10, members: [] },
+      { label: '10-20%', min: 10, max: 20, members: [] },
+      { label: '20-30%', min: 20, max: 30, members: [] },
+      { label: '30-40%', min: 30, max: 40, members: [] },
+      { label: '40-50%', min: 40, max: 50, members: [] },
+      { label: '50-60%', min: 50, max: 60, members: [] },
+      { label: '60-70%', min: 60, max: 70, members: [] },
+      { label: '70-80%', min: 70, max: 80, members: [] },
+      { label: '80-90%', min: 80, max: 90, members: [] },
+      { label: '90-100%', min: 90, max: 100, members: [] },
+    ];
+
+    memberRates.forEach(member => {
+      // 100%는 90-100% 구간에 포함
+      const range = ranges.find(r => {
+        if (r.max === 100) {
+          return member.rate >= r.min && member.rate <= r.max;
+        }
+        return member.rate >= r.min && member.rate < r.max;
+      });
+      if (range) {
+        range.members.push(member);
+      }
+    });
+
+    // 각 구간의 멤버들을 그룹 순서대로 정렬 (소프라노-알토-테너-베이스-기악부-기타/지휘)
+    const displayOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+    ranges.forEach(range => {
+      range.members.sort((a, b) => {
+        const groupIndexA = displayOrder.indexOf(a.group);
+        const groupIndexB = displayOrder.indexOf(b.group);
+        if (groupIndexA !== groupIndexB) {
+          return groupIndexA - groupIndexB;
+        }
+        return a.name.localeCompare(b.name, 'ko');
+      });
+    });
+
+    return ranges;
+  };
+
+  // 멤버별 월간 통계 생성 함수
+  const getMemberMonthlyStats = () => {
+    // 검색된 멤버 필터링
+    const filteredMembers = members.filter(member => {
+      const groupMatch = selectedGroup === 'all' || member.group === selectedGroup;
+      const nameMatch = member.name.toLowerCase().includes(memberSearchText.toLowerCase());
+      return groupMatch && nameMatch;
+    }).sort((a, b) => {
+      const groupIndexA = groupOrder.indexOf(a.group);
+      const groupIndexB = groupOrder.indexOf(b.group);
+      if (groupIndexA !== groupIndexB) {
+        return groupIndexA - groupIndexB;
+      }
+      return a.name.localeCompare(b.name, 'ko');
+    });
+
+    // 각 멤버별로 월간 통계 계산
+    return filteredMembers.map(member => {
+      const memberData = {
+        key: member.id,
+        name: member.name,
+        group: member.group,
+      };
+
+      // 날짜별로 그룹화
+      const monthlyStats = {};
+      
+      attendanceData.forEach(record => {
+        // 선택된 이벤트 타입 필터링
+        if (selectedEventType !== 'all' && record.event_type !== selectedEventType) {
+          return;
+        }
+
+        if (record.data && record.data.list) {
+          const attendance = record.data.list.find(a => a.id === member.id);
+          if (attendance) {
+            const month = record.date.substring(0, 7); // YYYY-MM
+            if (!monthlyStats[month]) {
+              monthlyStats[month] = { present: 0, absent: 0, excused: 0 };
+            }
+            if (attendance.status === 'present') monthlyStats[month].present++;
+            if (attendance.status === 'absent') monthlyStats[month].absent++;
+            if (attendance.status === 'excused') monthlyStats[month].excused++;
+          }
+        }
+      });
+
+      // 월별 데이터를 memberData에 추가
+      Object.keys(monthlyStats).sort().forEach(month => {
+        memberData[month] = monthlyStats[month];
+      });
+
+      return memberData;
+    });
+  };
+
+  // 멤버별 월간 통계 컬럼
+  const getMemberMonthlyColumns = () => {
+    const columns = [
+      {
+        title: '그룹',
+        dataIndex: 'group',
+        key: 'group',
+        width: 80,
+        align: 'center',
+        fixed: 'left',
+      },
+      {
+        title: '이름',
+        dataIndex: 'name',
+        key: 'name',
+        width: 100,
+        align: 'center',
+        fixed: 'left',
+      },
+    ];
+
+    // 출석 데이터에서 월 추출
+    const months = new Set();
+    attendanceData.forEach(record => {
+      if (selectedEventType === 'all' || record.event_type === selectedEventType) {
+        const month = record.date.substring(0, 7); // YYYY-MM
+        months.add(month);
+      }
+    });
+
+    // 월별 컬럼 추가
+    Array.from(months).sort().forEach(month => {
+      const [year, monthNum] = month.split('-');
+      columns.push({
+        title: `${parseInt(monthNum)}월`,
+        key: month,
+        width: 90,
+        align: 'center',
+        render: (_, record) => {
+          const stats = record[month];
+          if (!stats) return '-';
+          return (
+            <div style={{ fontSize: '0.75rem' }}>
+              <span style={{ color: '#2cb67d' }}>{stats.present}</span>
+              <span style={{ margin: '0 2px' }}>/</span>
+              <span style={{ color: '#ff4f5e' }}>{stats.absent}</span>
+              <span style={{ margin: '0 2px' }}>/</span>
+              <span style={{ color: '#f5b841' }}>{stats.excused}</span>
+            </div>
+          );
+        },
+      });
+    });
+
+    return columns;
+  };
+
   // 결석/공결 사유 테이블 컬럼 정의
   const absenceReasonColumns = [
     {
@@ -796,314 +1018,541 @@ function Statistics() {
     },
   ];
 
+
   return (
     <ConfigProvider>
       <div className="p-6">
         <Space className="w-full justify-between mb-4">
           <Title level={2}>
-            {selectedGroup === 'all' ? '' : selectedGroup + ' '}
-            {showGroupQuarterlyStats ? '부서별 분기별 통계' : showGroupMonthlyStats ? '부서별 월별 통계' : '출석 통계'}
+            출석 통계
             {' '}
             ({selectedYear}년 {viewType === 'year' 
               ? (yearPeriod === 'first' 
-                  ? ' 상반기' 
+                  ? '상반기' 
                   : yearPeriod === 'second' 
-                    ? ' 하반기'
+                    ? '하반기'
                     : yearPeriod === 'q1'
-                      ? ' 1분기'
+                      ? '1분기'
                       : yearPeriod === 'q2'
-                        ? ' 2분기'
+                        ? '2분기'
                         : yearPeriod === 'q3'
-                          ? ' 3분기'
+                          ? '3분기'
                           : yearPeriod === 'q4'
-                            ? ' 4분기'
+                            ? '4분기'
                             : '')
-              : ` ${selectedMonth}월`})
+              : `${selectedMonth}월`})
+            {selectedGroup !== 'all' && ` - ${selectedGroup}`}
           </Title>
           <Button
             type="default"
             icon={<DownloadOutlined />}
             onClick={handleExcelDownload}
-            className="hide-on-print bg-black text-white hover:bg-gray-800"
+            className="hide-on-print bg-black text-white hover:bg-gray-800 cursor-pointer"
             style={selectedButtonStyle}
           >
             <span className="hidden sm:inline">엑셀 다운로드</span>
           </Button>
         </Space>
-        <Space direction="vertical" size="middle" className="w-full mb-4">
-          <Space direction="vertical" size="small" className="hide-on-print w-full">
-            {/* 첫 번째 행: 연/월 선택 */}
-            <Space wrap>
-              <Button
-                type={viewType === 'year' ? 'default' : 'default'}
-                onClick={() => {
-                  setViewType('year');
-                  setYearPeriod('full');
-                  setShowGroupMonthlyStats(false);
-                  setShowGroupQuarterlyStats(false);
-                }}
-                className={viewType === 'year' ? 'bg-black text-white hover:bg-gray-800' : ''}
-                style={viewType === 'year' ? selectedButtonStyle : customButtonStyle}
-              >
-                연간 통계
-              </Button>
-              <Button
-                type={viewType === 'month' ? 'default' : 'default'}
-                onClick={() => {
-                  setViewType('month');
-                  setShowGroupQuarterlyStats(false);
-                }}
-                className={viewType === 'month' ? 'bg-black text-white hover:bg-gray-800' : ''}
-                style={viewType === 'month' ? selectedButtonStyle : customButtonStyle}
-              >
-                월간 통계
-              </Button>
-              <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 100 }}>
-                {Array.from({ length: 5 }, (_, i) => (
-                  <Option key={2025 + i} value={2025 + i}>
-                    {2025 + i}년
-                  </Option>
-                ))}
-                
-              </Select>
-              {viewType === 'month' && (
-                <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 80 }}>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <Option key={i + 1} value={i + 1}>
-                      {i + 1}월
-                    </Option>
-                  ))}
-                </Select>
-              )}
-              {/* 부서별 월별 통계 버튼 */}
-          <Space wrap className="hide-on-print">
-            <Button
-              type={showGroupMonthlyStats ? 'default' : 'default'}
-              onClick={() => {
-                setShowGroupMonthlyStats(!showGroupMonthlyStats);
-                setShowGroupQuarterlyStats(false);
-                setShowAbsenceReasons(false);
-                if (!showGroupMonthlyStats) {
-                  setViewType('month');
-                }
-              }}
-              className={showGroupMonthlyStats ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={showGroupMonthlyStats ? selectedButtonStyle : customButtonStyle}
-            >
-              부서별 월별 통계
-            </Button>
-            <Button
-              type={showGroupQuarterlyStats ? 'default' : 'default'}
-              onClick={() => {
-                setShowGroupQuarterlyStats(!showGroupQuarterlyStats);
-                setShowGroupMonthlyStats(false);
-                setShowAbsenceReasons(false);
-                if (!showGroupQuarterlyStats) {
-                  setViewType('year');
-                  if (yearPeriod === 'full' || yearPeriod === 'first' || yearPeriod === 'second') {
-                    setYearPeriod('q1');
-                  }
-                }
-              }}
-              className={showGroupQuarterlyStats ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={showGroupQuarterlyStats ? selectedButtonStyle : customButtonStyle}
-            >
-              부서별 분기별 통계
-            </Button>
-            <Button
-              type={showAbsenceReasons ? 'default' : 'default'}
-              onClick={() => {
-                setShowAbsenceReasons(!showAbsenceReasons);
-                setShowGroupMonthlyStats(false);
-                setShowGroupQuarterlyStats(false);
-              }}
-              className={showAbsenceReasons ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={showAbsenceReasons ? selectedButtonStyle : customButtonStyle}
-            >
-              결석/공결 사유
-            </Button>
-          </Space>
-            </Space>
 
-            {/* 구분선 추가 */}
-            {viewType === 'year' && (
-              <div className="w-full border-t border-gray-200 my-2" />
-            )}
-
-            {/* 두 번째 행: 기간 필터 버튼 */}
-            {viewType === 'year' && (
+        {/* 통계 설정 박스 */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 hide-on-print">
+          <Space direction="vertical" size="middle" className="w-full">
+            
+            {/* 1. 기간 선택 */}
+            <div>
+              <div className="text-sm font-semibold text-gray-600 mb-2">기간 선택</div>
               <Space wrap>
+                {/* 연간 통계 */}
                 <Button
-                  type={yearPeriod === 'full' ? 'default' : 'default'}
+                  type="default"
                   onClick={() => {
+                    setViewType('year');
                     setYearPeriod('full');
                     setShowGroupQuarterlyStats(false);
+                    setShowGroupMonthlyStats(false);
                   }}
-                  className={yearPeriod === 'full' ? 'bg-black text-white hover:bg-gray-800' : ''}
-                  style={yearPeriod === 'full' ? selectedButtonStyle : customButtonStyle}
+                  className={viewType === 'year' && yearPeriod === 'full' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={viewType === 'year' && yearPeriod === 'full' ? selectedButtonStyle : customButtonStyle}
                 >
-                  전체
+                  연간 통계
                 </Button>
+                
+                {/* 상반기 */}
                 <Button
-                  type={yearPeriod === 'first' ? 'default' : 'default'}
+                  type="default"
                   onClick={() => {
+                    setViewType('year');
                     setYearPeriod('first');
                     setShowGroupQuarterlyStats(false);
+                    setShowGroupMonthlyStats(false);
                   }}
-                  className={yearPeriod === 'first' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  className={yearPeriod === 'first' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'first' ? selectedButtonStyle : customButtonStyle}
                 >
                   상반기
                 </Button>
                 <Button
-                  type={yearPeriod === 'second' ? 'default' : 'default'}
+                  type="default"
                   onClick={() => {
+                    setViewType('year');
                     setYearPeriod('second');
                     setShowGroupQuarterlyStats(false);
+                    setShowGroupMonthlyStats(false);
                   }}
-                  className={yearPeriod === 'second' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  className={yearPeriod === 'second' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'second' ? selectedButtonStyle : customButtonStyle}
                 >
                   하반기
                 </Button>
+                
+                <div className="border-l border-gray-300 h-6 mx-2" />
+                
+                {/* 분기 */}
                 <Button
-                  type={yearPeriod === 'q1' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('q1')}
-                  className={yearPeriod === 'q1' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  type="default"
+                  onClick={() => {
+                    setViewType('year');
+                    setYearPeriod('q1');
+                  }}
+                  className={yearPeriod === 'q1' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q1' ? selectedButtonStyle : customButtonStyle}
                 >
                   1분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q2' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('q2')}
-                  className={yearPeriod === 'q2' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  type="default"
+                  onClick={() => {
+                    setViewType('year');
+                    setYearPeriod('q2');
+                  }}
+                  className={yearPeriod === 'q2' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q2' ? selectedButtonStyle : customButtonStyle}
                 >
                   2분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q3' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('q3')}
-                  className={yearPeriod === 'q3' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  type="default"
+                  onClick={() => {
+                    setViewType('year');
+                    setYearPeriod('q3');
+                  }}
+                  className={yearPeriod === 'q3' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q3' ? selectedButtonStyle : customButtonStyle}
                 >
                   3분기
                 </Button>
                 <Button
-                  type={yearPeriod === 'q4' ? 'default' : 'default'}
-                  onClick={() => setYearPeriod('q4')}
-                  className={yearPeriod === 'q4' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                  type="default"
+                  onClick={() => {
+                    setViewType('year');
+                    setYearPeriod('q4');
+                  }}
+                  className={yearPeriod === 'q4' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q4' ? selectedButtonStyle : customButtonStyle}
                 >
                   4분기
                 </Button>
+
+                <div className="border-l border-gray-300 h-6 mx-2" />
+
+                {/* 월간 통계 */}
+                <Button
+                  type="default"
+                  onClick={() => {
+                    setViewType('month');
+                    setShowGroupQuarterlyStats(false);
+                  }}
+                  className={viewType === 'month' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={viewType === 'month' ? selectedButtonStyle : customButtonStyle}
+                >
+                  월간 통계
+                </Button>
+                
+                <div className="border-l border-gray-300 h-6 mx-2" />
+                
+                <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 100 }}>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Option key={2025 + i} value={2025 + i}>
+                      {2025 + i}년
+                    </Option>
+                  ))}
+                </Select>
+                {viewType === 'month' && (
+                  <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 80 }}>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <Option key={i + 1} value={i + 1}>
+                        {i + 1}월
+                      </Option>
+                    ))}
+                  </Select>
+                )}
               </Space>
+            </div>
+
+            <div className="border-t border-gray-200" />
+
+            {/* 2. 통계 유형 */}
+            <div>
+              <div className="text-sm font-semibold text-gray-600 mb-2">통계 유형</div>
+              <Space wrap>
+                <Button
+                  type="default"
+                  onClick={() => {
+                    setShowGroupMonthlyStats(false);
+                    setShowGroupQuarterlyStats(false);
+                    setShowAbsenceReasons(false);
+                    setShowMemberView(false);
+                    setShowAttendanceRate(false);
+                  }}
+                  className={!showGroupMonthlyStats && !showGroupQuarterlyStats && !showAbsenceReasons && !showMemberView && !showAttendanceRate ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={!showGroupMonthlyStats && !showGroupQuarterlyStats && !showAbsenceReasons && !showMemberView && !showAttendanceRate ? selectedButtonStyle : customButtonStyle}
+                >
+                  전체 통계
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => {
+                    if (viewType === 'month') {
+                      setShowGroupMonthlyStats(true);
+                      setShowGroupQuarterlyStats(false);
+                    } else {
+                      setShowGroupQuarterlyStats(true);
+                      setShowGroupMonthlyStats(false);
+                    }
+                    setShowAbsenceReasons(false);
+                    setShowMemberView(false);
+                    setShowAttendanceRate(false);
+                  }}
+                  className={showGroupMonthlyStats || showGroupQuarterlyStats ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={showGroupMonthlyStats || showGroupQuarterlyStats ? selectedButtonStyle : customButtonStyle}
+                >
+                  부서별 통계
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => {
+                    setShowMemberView(true);
+                    setShowGroupMonthlyStats(false);
+                    setShowGroupQuarterlyStats(false);
+                    setShowAbsenceReasons(false);
+                    setShowAttendanceRate(false);
+                  }}
+                  className={showMemberView ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={showMemberView ? selectedButtonStyle : customButtonStyle}
+                >
+                  멤버별 통계
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => {
+                    setShowAttendanceRate(true);
+                    setShowGroupMonthlyStats(false);
+                    setShowGroupQuarterlyStats(false);
+                    setShowAbsenceReasons(false);
+                    setShowMemberView(false);
+                    setSelectedRateRange(null);
+                  }}
+                  className={showAttendanceRate ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={showAttendanceRate ? selectedButtonStyle : customButtonStyle}
+                >
+                  출석율 통계
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => {
+                    setShowAbsenceReasons(true);
+                    setShowGroupMonthlyStats(false);
+                    setShowGroupQuarterlyStats(false);
+                    setShowMemberView(false);
+                    setShowAttendanceRate(false);
+                  }}
+                  className={showAbsenceReasons ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={showAbsenceReasons ? selectedButtonStyle : customButtonStyle}
+                >
+                  결석/공결 사유
+                </Button>
+              </Space>
+            </div>
+
+            <div className="border-t border-gray-200" />
+
+            {/* 3. 시간대 필터 */}
+            <div>
+              <div className="text-sm font-semibold text-gray-600 mb-2">시간대</div>
+              <Space wrap>
+                <Button 
+                  type="default"
+                  onClick={() => setSelectedEventType('all')}
+                  className={selectedEventType === 'all' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={selectedEventType === 'all' ? selectedButtonStyle : customButtonStyle}
+                >
+                  전체
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => setSelectedEventType('am')}
+                  className={selectedEventType === 'am' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={selectedEventType === 'am' ? selectedButtonStyle : customButtonStyle}
+                >
+                  오전
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => setSelectedEventType('pm')}
+                  className={selectedEventType === 'pm' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={selectedEventType === 'pm' ? selectedButtonStyle : customButtonStyle}
+                >
+                  오후
+                </Button>
+                <Button
+                  type="default"
+                  onClick={() => setSelectedEventType('event')}
+                  className={selectedEventType === 'event' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                  style={selectedEventType === 'event' ? selectedButtonStyle : customButtonStyle}
+                >
+                  행사
+                </Button>
+              </Space>
+            </div>
+
+            {/* 4. 부서 필터 (전체 통계, 멤버별 통계, 출석율 통계에서만 표시) */}
+            {!showGroupMonthlyStats && !showGroupQuarterlyStats && !showAbsenceReasons && (
+              <>
+                <div className="border-t border-gray-200" />
+                <div>
+                  <div className="text-sm font-semibold text-gray-600 mb-2">부서</div>
+                  <Space wrap>
+                    <Button 
+                      type="default"
+                      onClick={() => setSelectedGroup('all')}
+                      className={selectedGroup === 'all' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                      style={selectedGroup === 'all' ? selectedButtonStyle : customButtonStyle}
+                    >
+                      전체
+                    </Button>
+                    {groupOrder.map(group => (
+                      <Button
+                        key={group}
+                        type="default"
+                        onClick={() => setSelectedGroup(group)}
+                        className={selectedGroup === group ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                        style={selectedGroup === group ? selectedButtonStyle : customButtonStyle}
+                      >
+                        {group}
+                      </Button>
+                    ))}
+                  </Space>
+                </div>
+              </>
             )}
+
+            {/* 5. 멤버 검색 (멤버별 통계에서만 표시) */}
+            {showMemberView && (
+              <>
+                <div className="border-t border-gray-200" />
+                <div>
+                  <div className="text-sm font-semibold text-gray-600 mb-2">멤버 검색</div>
+                  <Input
+                    placeholder="이름으로 검색..."
+                    value={memberSearchText}
+                    onChange={(e) => setMemberSearchText(e.target.value)}
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    style={{ width: '300px' }}
+                  />
+                </div>
+              </>
+            )}
+
           </Space>
+        </div>
 
-          {/* 구분선 추가 */}
-          <div className="w-full border-t border-gray-200 my-2" />
+        {/* 통계 테이블 */}
+        {showAttendanceRate ? (
+          <div className="mb-6">
+            <Title level={4} className="mb-4">
+              출석율 분포
+              {selectedEventType !== 'all' && (
+                <span className="ml-2 text-base">
+                  ({selectedEventType === 'am' ? '오전' : selectedEventType === 'pm' ? '오후' : '행사'})
+                </span>
+              )}
+            </Title>
+            
+            {/* 막대 그래프 */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 mb-6">
+              <Bar
+                data={{
+                  labels: getAttendanceRateStats().map(r => r.label),
+                  datasets: [{
+                    label: '인원 수',
+                    data: getAttendanceRateStats().map(r => r.members.length),
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                  }]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                      const index = elements[0].index;
+                      const ranges = getAttendanceRateStats();
+                      setSelectedRateRange(ranges[index]);
+                    }
+                  },
+                  plugins: {
+                    legend: {
+                      display: false
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (context) => `인원: ${context.parsed.y}명`
+                      }
+                    }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        stepSize: 1
+                      }
+                    }
+                  }
+                }}
+                height={80}
+              />
+              <div className="mt-2 text-xs text-gray-500 text-center">
+                * 막대를 클릭하면 해당 구간의 멤버 목록을 볼 수 있습니다
+              </div>
+            </div>
 
-          {/* 그룹 필터 버튼 */}
-          <Space wrap className="hide-on-print">
-            <Button 
-              type={selectedGroup === 'all' ? 'default' : 'default'}
-              onClick={() => setSelectedGroup('all')}
-              className={selectedGroup === 'all' ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={selectedGroup === 'all' ? selectedButtonStyle : customButtonStyle}
-            >
-              전체
-            </Button>
-            {groupOrder.map(group => (
-              <Button
-                key={group}
-                type={selectedGroup === group ? 'default' : 'default'}
-                onClick={() => setSelectedGroup(group)}
-                className={selectedGroup === group ? 'bg-black text-white hover:bg-gray-800' : ''}
-                style={selectedGroup === group ? selectedButtonStyle : customButtonStyle}
-              >
-                {group}
-              </Button>
-            ))}
-          </Space>
+            {/* 구간별 멤버 리스트 버튼 */}
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-gray-600 mb-2">구간 선택</div>
+              <Space wrap>
+                {getAttendanceRateStats().map((range, index) => (
+                  <Button
+                    key={index}
+                    type="default"
+                    onClick={() => setSelectedRateRange(range)}
+                    className={selectedRateRange?.label === range.label ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
+                    style={selectedRateRange?.label === range.label ? selectedButtonStyle : customButtonStyle}
+                  >
+                    {range.label} ({range.members.length}명)
+                  </Button>
+                ))}
+              </Space>
+            </div>
 
-          {/* 구분선 추가 */}
-          <div className="w-full border-t border-gray-200 my-2" />
-
-          {/* 이벤트 타입 필터 버튼 */}
-          <Space wrap className="hide-on-print">
-            <Button 
-              type={selectedEventType === 'all' ? 'default' : 'default'}
-              onClick={() => setSelectedEventType('all')}
-              className={selectedEventType === 'all' ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={selectedEventType === 'all' ? selectedButtonStyle : customButtonStyle}
-            >
-              전체
-            </Button>
-            <Button
-              type={selectedEventType === 'am' ? 'default' : 'default'}
-              onClick={() => setSelectedEventType('am')}
-              className={selectedEventType === 'am' ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={selectedEventType === 'am' ? selectedButtonStyle : customButtonStyle}
-            >
-              오전
-            </Button>
-            <Button
-              type={selectedEventType === 'pm' ? 'default' : 'default'}
-              onClick={() => setSelectedEventType('pm')}
-              className={selectedEventType === 'pm' ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={selectedEventType === 'pm' ? selectedButtonStyle : customButtonStyle}
-            >
-              오후
-            </Button>
-            <Button
-              type={selectedEventType === 'event' ? 'default' : 'default'}
-              onClick={() => setSelectedEventType('event')}
-              className={selectedEventType === 'event' ? 'bg-black text-white hover:bg-gray-800' : ''}
-              style={selectedEventType === 'event' ? selectedButtonStyle : customButtonStyle}
-            >
-              행사
-            </Button>
-          </Space>
-
-        </Space>
-
-        {/* 부서별 월별 통계 테이블 */}
-        {showAbsenceReasons ? (
+            {/* 선택된 구간의 멤버 리스트 */}
+            {selectedRateRange && selectedRateRange.members.length > 0 && (
+              <div>
+                <Title level={5} className="mb-3">
+                  {selectedRateRange.label} 구간 멤버 ({selectedRateRange.members.length}명)
+                </Title>
+                <Table
+                  columns={[
+                    {
+                      title: '그룹',
+                      dataIndex: 'group',
+                      key: 'group',
+                      width: 100,
+                      align: 'center',
+                    },
+                    {
+                      title: '이름',
+                      dataIndex: 'name',
+                      key: 'name',
+                      width: 100,
+                      align: 'center',
+                    },
+                    {
+                      title: '출석',
+                      dataIndex: 'presentCount',
+                      key: 'presentCount',
+                      width: 80,
+                      align: 'center',
+                    },
+                    {
+                      title: '전체',
+                      dataIndex: 'totalCount',
+                      key: 'totalCount',
+                      width: 80,
+                      align: 'center',
+                    },
+                    {
+                      title: '출석율',
+                      dataIndex: 'rate',
+                      key: 'rate',
+                      width: 100,
+                      align: 'center',
+                      render: (rate) => `${rate}%`,
+                      sorter: (a, b) => b.rate - a.rate,
+                    },
+                  ]}
+                  dataSource={selectedRateRange.members.map(m => ({ ...m, key: m.id }))}
+                  pagination={false}
+                  size="small"
+                  bordered
+                />
+              </div>
+            )}
+          </div>
+        ) : showMemberView ? (
+          <div className="mb-6">
+            <Title level={4} className="mb-4">
+              멤버별 월간 출석 통계
+              {selectedEventType !== 'all' && (
+                <span className="ml-2 text-base">
+                  ({selectedEventType === 'am' ? '오전' : selectedEventType === 'pm' ? '오후' : '행사'})
+                </span>
+              )}
+            </Title>
+            <Table
+              columns={getMemberMonthlyColumns()}
+              dataSource={getMemberMonthlyStats()}
+              pagination={false}
+              size="small"
+              bordered
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        ) : showAbsenceReasons ? (
           <div className="mb-6">
             <Space direction="vertical" size="middle" className="w-full">
-              <Space>
+              <div className="flex items-center justify-between">
                 <Title level={4} className="mb-0">
                   결석/공결 사유 내역
                 </Title>
-                <Space className="ml-4">
+                <Space>
                   <Button
-                    type={absenceSortType === 'none' ? 'default' : 'default'}
+                    type="default"
                     onClick={() => setAbsenceSortType('none')}
-                    className={absenceSortType === 'none' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    className={absenceSortType === 'none' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                     style={absenceSortType === 'none' ? selectedButtonStyle : customButtonStyle}
                   >
                     기본 정렬
                   </Button>
                   <Button
-                    type={absenceSortType === 'absence' ? 'default' : 'default'}
+                    type="default"
                     onClick={() => setAbsenceSortType('absence')}
-                    className={absenceSortType === 'absence' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    className={absenceSortType === 'absence' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                     style={absenceSortType === 'absence' ? selectedButtonStyle : customButtonStyle}
                   >
                     결석 많은 순
                   </Button>
                   <Button
-                    type={absenceSortType === 'excused' ? 'default' : 'default'}
+                    type="default"
                     onClick={() => setAbsenceSortType('excused')}
-                    className={absenceSortType === 'excused' ? 'bg-black text-white hover:bg-gray-800' : ''}
+                    className={absenceSortType === 'excused' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                     style={absenceSortType === 'excused' ? selectedButtonStyle : customButtonStyle}
                   >
                     공결 많은 순
                   </Button>
                 </Space>
-              </Space>
+              </div>
               <Table
                 columns={absenceReasonColumns}
                 dataSource={getAbsenceReasonData()}
