@@ -45,8 +45,10 @@ const Dashboard = () => {
   const [hasPmData, setHasPmData] = useState(false);
   const [statsPeriod, setStatsPeriod] = useState('week'); // 'week' or 'month'
   const [memberViewMode, setMemberViewMode] = useState('table'); // 'table' or 'chart'
-  const [attendanceViewMode, setAttendanceViewMode] = useState('table'); // 'table' or 'chart'
+  const [attendanceViewMode, setAttendanceViewMode] = useState('table'); // 'table', 'chart', or 'absence'
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [amAbsenceList, setAmAbsenceList] = useState([]);
+  const [pmAbsenceList, setPmAbsenceList] = useState([]);
 
   const groups = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
 
@@ -143,6 +145,32 @@ const Dashboard = () => {
     return { attendance, stats };
   };
 
+  // 결석자 목록 추출 함수
+  const extractAbsenceList = (attendanceData) => {
+    if (!attendanceData || !attendanceData.list) {
+      return [];
+    }
+
+    return attendanceData.list
+      .filter(m => m.status === 'absent' || m.status === 'excused')
+      .map(m => ({
+        id: m.id,
+        name: m.name,
+        group: m.group,
+        status: m.status,
+        reason: m.reason || '사유 없음'
+      }))
+      .sort((a, b) => {
+        const groupOrder = ['소프라노', '알토', '테너', '베이스', '기악부', '기타'];
+        const groupIndexA = groupOrder.indexOf(a.group);
+        const groupIndexB = groupOrder.indexOf(b.group);
+        if (groupIndexA !== groupIndexB) {
+          return groupIndexA - groupIndexB;
+        }
+        return a.name.localeCompare(b.name, 'ko');
+      });
+  };
+
   // 오전/오후 출석 데이터
   const fetchAttendanceData = async () => {
     const formattedDate = new Date(currentDate).toISOString().split('T')[0];
@@ -163,6 +191,7 @@ const Dashboard = () => {
       const { attendance, stats } = processAttendanceData(amAttendanceData);
       setAmAttendance(attendance);
       setAmStats(stats);
+      setAmAbsenceList(extractAbsenceList(amAttendanceData));
       setHasAmData(true);
     } else {
       setHasAmData(false);
@@ -175,6 +204,7 @@ const Dashboard = () => {
         excusedRate: 0
       });
       setAmStats([]);
+      setAmAbsenceList([]);
     }
 
     // 오후 데이터 가져오기
@@ -193,6 +223,7 @@ const Dashboard = () => {
       const { attendance, stats } = processAttendanceData(pmAttendanceData);
       setPmAttendance(attendance);
       setPmStats(stats);
+      setPmAbsenceList(extractAbsenceList(pmAttendanceData));
       setHasPmData(true);
     } else {
       setHasPmData(false);
@@ -205,6 +236,7 @@ const Dashboard = () => {
         excusedRate: 0
       });
       setPmStats([]);
+      setPmAbsenceList([]);
     }
   };
 
@@ -414,7 +446,7 @@ const Dashboard = () => {
                     표
                   </button>
                   <button
-                    className={`px-2 py-1 text-xs font-semibold rounded-r-md cursor-pointer ${
+                    className={`px-2 py-1 text-xs font-semibold cursor-pointer ${
                       attendanceViewMode === 'chart'
                         ? 'bg-black text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -422,6 +454,16 @@ const Dashboard = () => {
                     onClick={() => setAttendanceViewMode('chart')}
                   >
                     차트
+                  </button>
+                  <button
+                    className={`px-2 py-1 text-xs font-semibold rounded-r-md cursor-pointer ${
+                      attendanceViewMode === 'absence'
+                        ? 'bg-black text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    onClick={() => setAttendanceViewMode('absence')}
+                  >
+                    결석사유
                   </button>
                 </div>
               </div>
@@ -437,7 +479,59 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <>
-                      {attendanceViewMode === 'table' ? (
+                      {attendanceViewMode === 'absence' ? (
+                        <div className="space-y-3">
+                          {amAbsenceList.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500 text-sm">
+                              결석/공결자가 없습니다
+                            </div>
+                          ) : (
+                            <>
+                              {/* 공결자 */}
+                              {amAbsenceList.filter(m => m.status === 'excused').length > 0 && (
+                                <div className="bg-yellow-50 rounded-lg p-3">
+                                  <div className="text-sm font-semibold text-gray-900 mb-2">공결</div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {amAbsenceList
+                                      .filter(m => m.status === 'excused')
+                                      .map(m => (
+                                        <div key={m.id} className="text-xs bg-white rounded px-2 py-1.5 text-gray-700">
+                                          <div className="text-[10px] text-gray-500 mb-0.5">{getGroupDisplayName(m.group)}</div>
+                                          <div>
+                                            <span className="font-medium">{m.name}</span>
+                                            <span className="text-gray-500">({m.reason})</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    }
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* 결석자 */}
+                              {amAbsenceList.filter(m => m.status === 'absent').length > 0 && (
+                                <div className="bg-red-50 rounded-lg p-3">
+                                  <div className="text-sm font-semibold text-gray-900 mb-2">결석</div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {amAbsenceList
+                                      .filter(m => m.status === 'absent')
+                                      .map(m => (
+                                        <div key={m.id} className="text-xs bg-white rounded px-2 py-1.5 text-gray-700">
+                                          <div className="text-[10px] text-gray-500 mb-0.5">{getGroupDisplayName(m.group)}</div>
+                                          <div>
+                                            <span className="font-medium">{m.name}</span>
+                                            <span className="text-gray-500">({m.reason})</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    }
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ) : attendanceViewMode === 'table' ? (
                         <div className="grid grid-cols-3 gap-2 mb-4">
                           <div className="text-center p-3 bg-green-50 rounded-lg">
                             <div className="text-xs font-semibold text-gray-600 mb-2">출석</div>
@@ -496,6 +590,7 @@ const Dashboard = () => {
                       )}
 
                       {/* 오전 그룹별 통계 */}
+                      {attendanceViewMode !== 'absence' && (
                       <div className="mt-4">
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200 text-xs">
@@ -542,6 +637,7 @@ const Dashboard = () => {
                           </table>
                         </div>
                       </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -556,7 +652,59 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <>
-                      {attendanceViewMode === 'table' ? (
+                      {attendanceViewMode === 'absence' ? (
+                        <div className="space-y-3">
+                          {pmAbsenceList.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500 text-sm">
+                              결석/공결자가 없습니다
+                            </div>
+                          ) : (
+                            <>
+                              {/* 공결자 */}
+                              {pmAbsenceList.filter(m => m.status === 'excused').length > 0 && (
+                                <div className="bg-yellow-50 rounded-lg p-3">
+                                  <div className="text-sm font-semibold text-gray-900 mb-2">공결</div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {pmAbsenceList
+                                      .filter(m => m.status === 'excused')
+                                      .map(m => (
+                                        <div key={m.id} className="text-xs bg-white rounded px-2 py-1.5 text-gray-700">
+                                          <div className="text-[10px] text-gray-500 mb-0.5">{getGroupDisplayName(m.group)}</div>
+                                          <div>
+                                            <span className="font-medium">{m.name}</span>
+                                            <span className="text-gray-500">({m.reason})</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    }
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* 결석자 */}
+                              {pmAbsenceList.filter(m => m.status === 'absent').length > 0 && (
+                                <div className="bg-red-50 rounded-lg p-3">
+                                  <div className="text-sm font-semibold text-gray-900 mb-2">결석</div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {pmAbsenceList
+                                      .filter(m => m.status === 'absent')
+                                      .map(m => (
+                                        <div key={m.id} className="text-xs bg-white rounded px-2 py-1.5 text-gray-700">
+                                          <div className="text-[10px] text-gray-500 mb-0.5">{getGroupDisplayName(m.group)}</div>
+                                          <div>
+                                            <span className="font-medium">{m.name}</span>
+                                            <span className="text-gray-500">({m.reason})</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    }
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ) : attendanceViewMode === 'table' ? (
                         <div className="grid grid-cols-3 gap-2 mb-4">
                           <div className="text-center p-3 bg-green-50 rounded-lg">
                             <div className="text-xs font-semibold text-gray-600 mb-2">출석</div>
@@ -615,6 +763,7 @@ const Dashboard = () => {
                       )}
 
                       {/* 오후 그룹별 통계 */}
+                      {attendanceViewMode !== 'absence' && (
                       <div className="mt-4">
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200 text-xs">
@@ -661,6 +810,7 @@ const Dashboard = () => {
                           </table>
                         </div>
                       </div>
+                      )}
                     </>
                   )}
                 </div>
