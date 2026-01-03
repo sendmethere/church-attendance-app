@@ -8,6 +8,7 @@ import AttendanceManagement from './pages/AttendanceManagement';
 import Statistics from './pages/Statistics';
 import Events from './pages/Events';
 import Notice from './pages/Notice';
+import TagManagement from './pages/TagManagement';
 import Navbar from './pages/Navbar';
 import { useLocation } from 'react-router-dom';
 import 'antd/dist/reset.css';
@@ -92,6 +93,11 @@ function App() {
           <Route path="/notice" element={
             <ProtectedRoute>
               <Notice />
+            </ProtectedRoute>
+          } />
+          <Route path="/tags" element={
+            <ProtectedRoute>
+              <TagManagement />
             </ProtectedRoute>
           } />
         </Routes>

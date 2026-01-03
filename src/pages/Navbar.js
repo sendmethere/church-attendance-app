@@ -90,14 +90,14 @@ const Navbar = () => {
                 <span className="text-xs">일정</span>
               </Link>
               <Link
-                to="/notice"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  isActive('/notice')
+                to="/tags"
+                className={`hidden sm:inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  isActive('/tags')
                     ? 'border-blue-500 text-gray-900'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                <span className="text-xs">공지</span>
+                <span className="text-xs">태그</span>
               </Link>
             </div>
           </div>

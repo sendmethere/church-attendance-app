@@ -18,11 +18,9 @@ const Dashboard = () => {
     bass: 0,
     instrument: 0,
     other: 0,
-    ensembleA: 0,
-    ensembleB: 0,
-    ensembleC: 0,
-    lbt: 0
+    tags: {} // 동적 태그 통계
   });
+  const [tags, setTags] = useState([]);
   const [amAttendance, setAmAttendance] = useState({
     present: 0,
     absent: 0,
@@ -58,9 +56,25 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    fetchTags();
     fetchMemberStats();
     fetchAttendanceData();
   }, []);
+
+  // 태그 가져오기
+  const fetchTags = async () => {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('태그 조회 실패:', error);
+      return;
+    }
+
+    setTags(data || []);
+  };
 
   // 현재 활동 중인 멤버 통계
   const fetchMemberStats = async () => {
@@ -77,6 +91,12 @@ const Dashboard = () => {
       return;
     }
 
+    // 태그별 통계 계산
+    const tagStats = {};
+    tags.forEach(tag => {
+      tagStats[tag.name] = data.filter(m => m.tags && m.tags.includes(tag.name)).length;
+    });
+
     const stats = {
       total: data.length,
       soprano: data.filter(m => m.group === '소프라노').length,
@@ -85,10 +105,7 @@ const Dashboard = () => {
       bass: data.filter(m => m.group === '베이스').length,
       instrument: data.filter(m => m.group === '기악부').length,
       other: data.filter(m => m.group === '기타').length,
-      ensembleA: data.filter(m => m.tags && m.tags.includes('중창A')).length,
-      ensembleB: data.filter(m => m.tags && m.tags.includes('중창B')).length,
-      ensembleC: data.filter(m => m.tags && m.tags.includes('중창C')).length,
-      lbt: data.filter(m => m.tags && m.tags.includes('엘벧엘')).length
+      tags: tagStats
     };
 
     setMemberStats(stats);
@@ -402,25 +419,17 @@ const Dashboard = () => {
                 {/* 구분선 */}
                 <div className="my-3"></div>
                
-                {/* 중창단 - 2열 그리드 */}
-                <div className={`grid grid-cols-2 gap-2 ${memberViewMode === 'chart' ? 'text-sm' : ''}`}>
-                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창A</span>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleA}명</span>
+                {/* 태그 - 2열 그리드 */}
+                {tags.length > 0 && (
+                  <div className={`grid grid-cols-2 gap-2 ${memberViewMode === 'chart' ? 'text-sm' : ''}`}>
+                    {tags.map(tag => (
+                      <div key={tag.id} className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
+                        <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>{tag.name}</span>
+                        <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.tags[tag.name] || 0}명</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창B</span>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleB}명</span>
-                  </div>
-                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>중창C</span>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.ensembleC}명</span>
-                  </div>
-                  <div className={`flex justify-between items-center ${memberViewMode === 'chart' ? 'p-1.5' : 'p-2'} bg-purple-50 rounded-lg`}>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} text-gray-700`}>엘벧엘</span>
-                    <span className={`${memberViewMode === 'chart' ? 'text-xs' : 'text-base'} font-semibold text-purple-700`}>{memberStats.lbt}명</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 

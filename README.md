@@ -68,4 +68,18 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+## Supabase Migrations
+
+태그 관리 기능을 위해 `tags` 테이블이 필요합니다. Supabase 대시보드의 SQL Editor에서 아래 파일을 순서대로 실행하세요:
+
+1. `supabase_migrations/create_tags_table.sql` - tags 테이블 생성 및 기본 데이터
+2. `supabase_migrations/add_abbreviation_to_tags.sql` - 기존 테이블에 약어 컬럼 추가 (이미 테이블이 있는 경우)
+
+또는 직접 SQL을 실행하세요:
+1. Supabase 프로젝트 대시보드 접속
+2. SQL Editor 메뉴 선택
+3. 위 파일들의 내용을 순서대로 복사해서 실행
+
 # church-attendance-app
+

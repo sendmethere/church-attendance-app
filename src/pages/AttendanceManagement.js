@@ -4,7 +4,7 @@ import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/2
 import { getDefaultSunday, isValidDate, getSundayFromDate } from '../utils/dateUtils';
 
 const AttendanceManagement = () => {
-  const [date, setDate] = useState(getDefaultSunday());
+  const [date, setDate] = useState('');
   const [attendance, setAttendance] = useState([]);
   const [members, setMembers] = useState([]);
   const [groupFilter, setGroupFilter] = useState(() => 
@@ -17,18 +17,19 @@ const AttendanceManagement = () => {
   const [changes, setChanges] = useState({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGroupStatsOpen, setIsGroupStatsOpen] = useState(false);
-  const [yearInput, setYearInput] = useState(() => new Date(getDefaultSunday()).getFullYear());
-  const [monthInput, setMonthInput] = useState(() => new Date(getDefaultSunday()).getMonth() + 1);
-  const [dayInput, setDayInput] = useState(() => new Date(getDefaultSunday()).getDate());
+  const [yearInput, setYearInput] = useState('');
+  const [monthInput, setMonthInput] = useState('');
+  const [dayInput, setDayInput] = useState('');
   const [timeOfDay, setTimeOfDay] = useState('am'); // 'am' or 'pm' or 'event'
   const [availableEvents, setAvailableEvents] = useState({ am: false, pm: false, event: false });
   const [hasEvents, setHasEvents] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [showAbsentModal, setShowAbsentModal] = useState(false);
   const [showExcusedModal, setShowExcusedModal] = useState(false);
+  const [tags, setTags] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const groups = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
-  const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
 
   // 그룹/태그 축약 표시 함수
   const getShortName = (name) => {
@@ -37,12 +38,15 @@ const AttendanceManagement = () => {
       '알토': '알',
       '테너': '테',
       '베이스': '베',
-      '기악부': '기악',
-      '중창A': 'A',
-      '중창B': 'B',
-      '중창C': 'C',
-      '엘벧엘': '엘'
+      '기악부': '기악'
     };
+    
+    // 태그 약어 확인
+    const tag = tags.find(t => t.name === name);
+    if (tag && tag.abbreviation) {
+      return tag.abbreviation;
+    }
+    
     return shortNames[name] || name;
   };
 
@@ -71,6 +75,78 @@ const AttendanceManagement = () => {
       fetchAttendance();
     }
   }, [date, timeOfDay]);
+
+  useEffect(() => {
+    fetchTags();
+    initializeDate();
+  }, []);
+
+  // 초기 날짜 설정 - 오늘과 가장 가까운 날짜로 (과거/미래 구분 없이)
+  const initializeDate = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('date')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('날짜 초기화 실패:', error);
+      // 에러 시 오늘 날짜로 설정
+      const defaultDate = getDefaultSunday();
+      setDate(defaultDate);
+      const localDate = new Date(defaultDate);
+      setYearInput(localDate.getFullYear());
+      setMonthInput(localDate.getMonth() + 1);
+      setDayInput(localDate.getDate());
+      setIsInitialized(true);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const allDates = [...new Set(data.map(event => event.date))];
+      
+      // 오늘과 가장 가까운 날짜 찾기 (과거/미래 구분 없이 절대값 기준)
+      let closestDate = allDates[0];
+      let minDiff = Math.abs(new Date(allDates[0]) - new Date(today));
+      
+      for (const date of allDates) {
+        const diff = Math.abs(new Date(date) - new Date(today));
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestDate = date;
+        }
+      }
+      
+      setDate(closestDate);
+      const localDate = new Date(closestDate + 'T00:00:00');
+      setYearInput(localDate.getFullYear());
+      setMonthInput(localDate.getMonth() + 1);
+      setDayInput(localDate.getDate());
+    } else {
+      // 데이터가 없으면 오늘 날짜로
+      const defaultDate = getDefaultSunday();
+      setDate(defaultDate);
+      const localDate = new Date(defaultDate);
+      setYearInput(localDate.getFullYear());
+      setMonthInput(localDate.getMonth() + 1);
+      setDayInput(localDate.getDate());
+    }
+    setIsInitialized(true);
+  };
+
+  const fetchTags = async () => {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tags:', error);
+      return;
+    }
+
+    setTags(data);
+  };
 
   const fetchMembers = async () => {
     const formattedDate = new Date(date).toISOString().split('T')[0];
@@ -462,7 +538,7 @@ const AttendanceManagement = () => {
 
   const filteredMembers = (attendance.list?.filter((member) => {
     const groupMatch = groupFilter === 'all' || member.group === groupFilter;
-    const tagMatch = tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter));
+    const tagMatch = tagFilter === 'all' || (member.tags && member.tags.includes(tagFilter.name));
     return groupMatch && tagMatch;
   }) || []).sort((a, b) => {
     const groupIndexA = groups.indexOf(a.group);
@@ -510,15 +586,15 @@ const AttendanceManagement = () => {
     const { data, error } = await supabase
       .from('events')
       .select('date')
-      .order('date');
+      .order('date', { ascending: false }); // 내림차순으로 변경
 
     if (error) {
       console.error('날짜 조회 실패:', error);
       return;
     }
 
-    // 중복 날짜 제거
-    const uniqueDates = [...new Set(data.map(event => event.date))].sort();
+    // 중복 날짜 제거 및 내림차순 정렬 유지
+    const uniqueDates = [...new Set(data.map(event => event.date))];
     setAvailableDates(uniqueDates);
   };
 
@@ -527,43 +603,43 @@ const AttendanceManagement = () => {
     fetchAvailableDates();
   }, []);
 
-  // moveToNextSunday 함수 수정
+  // moveToNextSunday 함수 - 더 최근으로 (오른쪽 화살표)
   const moveToNextSunday = async () => {
     const currentIndex = availableDates.indexOf(date);
-    if (currentIndex < availableDates.length - 1) {
-      const nextDate = availableDates[currentIndex + 1];
+    if (currentIndex > 0) {
+      const newerDate = availableDates[currentIndex - 1];
       
       // input 값 업데이트
-      const localDate = new Date(nextDate);
+      const localDate = new Date(newerDate + 'T00:00:00');
       setYearInput(localDate.getFullYear());
       setMonthInput(localDate.getMonth() + 1);
       setDayInput(localDate.getDate());
       
       // 일정 타입 확인 및 설정을 기다림
-      await checkAndSetEventType(nextDate);
+      await checkAndSetEventType(newerDate);
       
       // 타입 설정이 완료된 후 날짜 설정
-      setDate(nextDate);
+      setDate(newerDate);
     }
   };
 
-  // moveToPreviousSunday 함수 수정
+  // moveToPreviousSunday 함수 - 더 과거로 (왼쪽 화살표)
   const moveToPreviousSunday = async () => {
     const currentIndex = availableDates.indexOf(date);
-    if (currentIndex > 0) {
-      const previousDate = availableDates[currentIndex - 1];
+    if (currentIndex < availableDates.length - 1) {
+      const olderDate = availableDates[currentIndex + 1];
       
       // input 값 업데이트
-      const localDate = new Date(previousDate);
+      const localDate = new Date(olderDate + 'T00:00:00');
       setYearInput(localDate.getFullYear());
       setMonthInput(localDate.getMonth() + 1);
       setDayInput(localDate.getDate());
       
       // 일정 타입 확인 및 설정을 기다림
-      await checkAndSetEventType(previousDate);
+      await checkAndSetEventType(olderDate);
       
       // 타입 설정이 완료된 후 날짜 설정
-      setDate(previousDate);
+      setDate(olderDate);
     }
   };
 
@@ -592,12 +668,8 @@ const AttendanceManagement = () => {
 
     const formattedSearchDate = searchDate.toISOString().split('T')[0];
 
-    const targetDate = availableDates.reduce((closest, date) => {
-      if (date <= formattedSearchDate && (!closest || date > closest)) {
-        return date;
-      }
-      return closest;
-    }, null);
+    // 입력한 날짜와 같거나 이전의 가장 가까운 날짜 찾기
+    const targetDate = availableDates.find(date => date <= formattedSearchDate);
 
     if (!targetDate) {
       alert('조회 가능한 이전 일정이 없습니다.');
@@ -605,7 +677,7 @@ const AttendanceManagement = () => {
     }
 
     // input 값 업데이트
-    const localDate = new Date(targetDate);
+    const localDate = new Date(targetDate + 'T00:00:00');
     setYearInput(localDate.getFullYear());
     setMonthInput(localDate.getMonth() + 1);
     setDayInput(localDate.getDate());
@@ -995,12 +1067,17 @@ const AttendanceManagement = () => {
     if (tag === 'all') {
       return filteredMembers.length;
     }
-    return filteredMembers.filter(member => member.tags?.includes(tag)).length;
+    return filteredMembers.filter(member => member.tags?.includes(tag.name)).length;
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center pt-4 pb-6 sm:pb-6">
       <h1 className="text-lg sm:text-xl font-bold text-gray-800">전주교회 찬양대</h1>
+      {!isInitialized ? (
+        <div className="w-full max-w-4xl px-2 sm:px-4 flex justify-center items-center h-64">
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      ) : (
       <div className="w-full max-w-4xl px-2 sm:px-4">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4 sm:mb-0 w-full sm:w-auto">
@@ -1353,7 +1430,7 @@ const AttendanceManagement = () => {
                   </button>
                   {tags.map((tag) => (
                     <button
-                      key={tag}
+                      key={tag.id}
                       onClick={() => handleTagFilterChange(tag)}
                       className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                         tagFilter === tag
@@ -1361,7 +1438,7 @@ const AttendanceManagement = () => {
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                       }`}
                     >
-                      <span>{getShortName(tag)}</span>
+                      <span>{getShortName(tag.name)}</span>
                       <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] hidden sm:block ${
                         tagFilter === tag
                           ? 'bg-white bg-opacity-25'
@@ -1482,24 +1559,25 @@ const AttendanceManagement = () => {
             </div>
           </>
         )}
-      </div>
-
-      {/* 모달 컴포넌트 추가 */}
-      <AttendanceModal
-        isOpen={showAbsentModal}
-        onClose={() => setShowAbsentModal(false)}
-        title="결석자 명단"
-        list={getAbsentList('absent')}
-        titleColor="text-red-600"
-      />
       
-      <AttendanceModal
-        isOpen={showExcusedModal}
-        onClose={() => setShowExcusedModal(false)}
-        title="공결자 명단"
-        list={getAbsentList('excused')}
-        titleColor="text-yellow-600"
-      />
+        {/* 모달 컴포넌트 추가 */}
+        <AttendanceModal
+          isOpen={showAbsentModal}
+          onClose={() => setShowAbsentModal(false)}
+          title="결석자 명단"
+          list={getAbsentList('absent')}
+          titleColor="text-red-600"
+        />
+        
+        <AttendanceModal
+          isOpen={showExcusedModal}
+          onClose={() => setShowExcusedModal(false)}
+          title="공결자 명단"
+          list={getAbsentList('excused')}
+          titleColor="text-yellow-600"
+        />
+      </div>
+    )}
     </div>
   );
 };

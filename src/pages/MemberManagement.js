@@ -6,9 +6,7 @@ const MemberManagement = () => {
   const [groupFilter, setGroupFilter] = useState(() => 
     localStorage.getItem('selectedMemberGroup') || 'all'
   );
-  const [tagFilter, setTagFilter] = useState(() => 
-    localStorage.getItem('selectedMemberTag') || 'all'
-  );
+  const [tagFilter, setTagFilter] = useState('all');
   const [showInactive, setShowInactive] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,12 +31,13 @@ const MemberManagement = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [editingTags, setEditingTags] = useState([]);
+  const [tags, setTags] = useState([]);
 
   const groups = ['기타', '소프라노', '알토', '테너', '베이스', '기악부'];
-  const tags = ['중창A', '중창B', '중창C', '엘벧엘'];
 
   useEffect(() => {
     fetchMembers();
+    fetchTags();
   }, []);
 
   const fetchMembers = async () => {
@@ -66,6 +65,20 @@ const MemberManagement = () => {
     setMembers(sortedMembers);
   };
 
+  const fetchTags = async () => {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tags:', error);
+      return;
+    }
+
+    setTags(data);
+  };
+
   const handleGroupFilterChange = (group) => {
     setGroupFilter(group);
     localStorage.setItem('selectedMemberGroup', group);
@@ -73,7 +86,6 @@ const MemberManagement = () => {
 
   const handleTagFilterChange = (tag) => {
     setTagFilter(tag);
-    localStorage.setItem('selectedMemberTag', tag);
   };
 
   const isActiveMember = (member) => {
@@ -107,7 +119,7 @@ const MemberManagement = () => {
     if (tag === 'none') {
       return activeMembers.filter(member => !member.tags || member.tags.length === 0).length;
     }
-    return activeMembers.filter(member => member.tags?.includes(tag)).length;
+    return activeMembers.filter(member => member.tags?.includes(tag.name)).length;
   };
 
   const filteredMembers = members
@@ -116,7 +128,7 @@ const MemberManagement = () => {
     .filter((member) => {
       if (tagFilter === 'all') return true;
       if (tagFilter === 'none') return !member.tags || member.tags.length === 0;
-      return member.tags && member.tags.includes(tagFilter);
+      return member.tags && member.tags.includes(tagFilter.name);
     });
 
   const handleEditDates = (member) => {
@@ -365,7 +377,7 @@ const MemberManagement = () => {
                 </button>
                 {tags.map((tag) => (
                   <button
-                    key={tag}
+                    key={tag.id}
                     onClick={() => handleTagFilterChange(tag)}
                     className={`px-2.5 py-1 text-xs rounded-md flex items-center transition-colors ${
                       tagFilter === tag
@@ -373,7 +385,7 @@ const MemberManagement = () => {
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                     }`}
                   >
-                    <span>{tag}</span>
+                    <span>{tag.name}</span>
                     <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] ${
                       tagFilter === tag
                         ? 'bg-white bg-opacity-25'
@@ -479,16 +491,16 @@ const MemberManagement = () => {
                       <div className="flex flex-wrap gap-1">
                         {tags.map(tag => (
                           <button
-                            key={tag}
-                            onClick={() => toggleTag(member, tag)}
+                            key={tag.id}
+                            onClick={() => toggleTag(member, tag.name)}
                             disabled={isUpdating}
-                            className={`px-2 py-1 rounded-lg text-xs transition-colors ${
-                              member.tags?.includes(tag)
+                            className={`px-2 py-1 rounded-lg text-xs transition-colors cursor-pointer ${
+                              member.tags?.includes(tag.name)
                                 ? 'bg-purple-500 text-white'
                                 : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                             }`}
                           >
-                            {tag}
+                            {tag.name}
                           </button>
                         ))}
                       </div>
@@ -656,21 +668,21 @@ const MemberManagement = () => {
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
                     <button
-                      key={tag}
+                      key={tag.id}
                       onClick={() => {
                         const currentTags = newMember.tags || [];
-                        const newTags = currentTags.includes(tag)
-                          ? currentTags.filter(t => t !== tag)
-                          : [...currentTags, tag];
+                        const newTags = currentTags.includes(tag.name)
+                          ? currentTags.filter(t => t !== tag.name)
+                          : [...currentTags, tag.name];
                         setNewMember(prev => ({ ...prev, tags: newTags }));
                       }}
-                      className={`px-2 py-1 rounded-lg text-xs transition-colors ${
-                        newMember.tags?.includes(tag)
+                      className={`px-2 py-1 rounded-lg text-xs transition-colors cursor-pointer ${
+                        newMember.tags?.includes(tag.name)
                           ? 'bg-purple-500 text-white'
                           : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                       }`}
                     >
-                      {tag}
+                      {tag.name}
                     </button>
                   ))}
                 </div>
