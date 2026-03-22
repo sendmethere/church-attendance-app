@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import supabase from '../supabaseClient';
 import { Table, Typography, ConfigProvider, Select, Space, Button, Tooltip, Input } from 'antd';
-import { convertTableDataToExcel, downloadExcel, generateFileName } from '../utils/excelUtils';
+import { getPeriodText, downloadExcel, generateFileName, downloadAbsenceReasonExcel } from '../utils/excelUtils';
 import { DownloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title as ChartTitle, Tooltip as ChartTooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
@@ -231,6 +231,11 @@ function Statistics() {
       return a.name.localeCompare(b.name, 'ko');
     });
 
+    // 날짜+타입 → record 빠른 조회용 Map
+    const recordMap = new Map(
+      attendanceData.map(r => [`${r.date}_${r.event_type}`, r])
+    );
+
     // 정렬된 멤버로 테이블 데이터 생성
     const tableData = sortedMembers.map(member => {
       const rowData = {
@@ -242,38 +247,26 @@ function Statistics() {
         excusedCount: 0,
       };
 
-      // 각 날짜에 대해 출결 상태를 계산
+      // 각 날짜에 대해 출결 상태를 계산 (존재하는 이벤트 타입만)
       eventDates.forEach(dateInfo => {
-        const amRecord = attendanceData.find(record => 
-          record.date === dateInfo.date && record.event_type === 'am'
-        );
-        const pmRecord = attendanceData.find(record => 
-          record.date === dateInfo.date && record.event_type === 'pm'
-        );
-        const eventRecord = attendanceData.find(record => 
-          record.date === dateInfo.date && record.event_type === 'event'
-        );
-
-        rowData[`${dateInfo.date}_am`] = getAttendanceStatus(amRecord, member.id);
-        rowData[`${dateInfo.date}_pm`] = getAttendanceStatus(pmRecord, member.id);
-        rowData[`${dateInfo.date}_event`] = getAttendanceStatus(eventRecord, member.id);
-
-        updateAttendanceCounts(rowData, amRecord, member.id);
-        updateAttendanceCounts(rowData, pmRecord, member.id);
-        updateAttendanceCounts(rowData, eventRecord, member.id);
+        ['am', 'pm', 'event'].forEach(type => {
+          if (!dateInfo[type]) return;
+          const record = recordMap.get(`${dateInfo.date}_${type}`);
+          rowData[`${dateInfo.date}_${type}`] = getAttendanceStatus(record, member.id);
+          updateAttendanceCounts(rowData, record, member.id);
+        });
       });
 
       return rowData;
     });
 
-    // 날짜별 통계 초기화
+    // 날짜별 통계 초기화 (존재하는 이벤트 타입만)
     const totalStats = {};
     eventDates.forEach(dateInfo => {
-      totalStats[dateInfo.date] = {
-        am: { present: 0, absent: 0, excused: 0 },
-        pm: { present: 0, absent: 0, excused: 0 },
-        event: { present: 0, absent: 0, excused: 0 }
-      };
+      totalStats[dateInfo.date] = {};
+      ['am', 'pm', 'event'].forEach(type => {
+        if (dateInfo[type]) totalStats[dateInfo.date][type] = { present: 0, absent: 0, excused: 0 };
+      });
     });
 
     // 실제 출석 데이터로 통계 계산
@@ -344,10 +337,11 @@ function Statistics() {
       excusedCount: '-',
     };
 
-    // 각 날짜별 AM/PM 데이터 추가
+    // 각 날짜별 데이터 추가 (존재하는 이벤트 타입만)
     Object.entries(totalStats).forEach(([date, stats]) => {
-      totalRow[`${date}_am`] = stats.am;
-      totalRow[`${date}_pm`] = stats.pm;
+      ['am', 'pm', 'event'].forEach(type => {
+        if (stats[type] !== undefined) totalRow[`${date}_${type}`] = stats[type];
+      });
     });
 
     return totalRow;
@@ -364,11 +358,12 @@ function Statistics() {
       excusedCount: '-',
     };
 
-    // 각 날짜별 AM/PM 출석률 계산
+    // 각 날짜별 출석률 계산 (존재하는 이벤트 타입만)
     Object.entries(totalStats).forEach(([date, stats]) => {
-      ['am', 'pm'].forEach(timeSlot => {
+      ['am', 'pm', 'event'].forEach(timeSlot => {
+        if (stats[timeSlot] === undefined) return;
         const total = stats[timeSlot].present + stats[timeSlot].absent + stats[timeSlot].excused;
-        attendanceRateRow[`${date}_${timeSlot}`] = total 
+        attendanceRateRow[`${date}_${timeSlot}`] = total
           ? ((stats[timeSlot].present / total) * 100).toFixed(1)
           : '0';
       });
@@ -532,29 +527,50 @@ function Statistics() {
   };
   
 
-  const handleExcelDownload = () => {
-    // 테재 필터링된 데이터 가져오기
-    const filteredData = tableData.filter(record => 
-      selectedGroup === 'all' || 
-      record.group === selectedGroup || 
-      record.key === 'total' || 
-      record.key === 'attendanceRate'
-    );
+  const handleExcelDownload = async () => {
+    const periodText = getPeriodText({ viewType, yearPeriod, selectedMonth, selectedYear });
 
-    // 엑셀 데이터 변환
-    const excelData = convertTableDataToExcel(filteredData);
+    // 전체 시트: 모든 멤버 + 합계/출석률 행
+    const sheets = [
+      {
+        sheetName: '전체',
+        tableData,
+        selectedEventType,
+        titleText: `${periodText} 전체 출석부`,
+      },
+    ];
 
-    // 파일 이름 생성
+    // 파트별 시트: 멤버가 있는 그룹만 (합계/출석률 행 제외)
+    groupOrder.forEach(group => {
+      const groupMembers = tableData.filter(r => r.group === group);
+      if (groupMembers.length > 0) {
+        sheets.push({
+          sheetName: group,
+          tableData: groupMembers,
+          selectedEventType,
+          titleText: `${periodText} ${group} 출석부`,
+        });
+      }
+    });
+
     const fileName = generateFileName({
       selectedYear,
       viewType,
       yearPeriod,
       selectedMonth,
-      selectedGroup
+      selectedGroup,
     });
 
-    // 엑셀 파일 다운로드
-    downloadExcel(excelData, fileName);
+    await downloadExcel(sheets, fileName);
+  };
+
+  const handleAbsenceReasonExcelDownload = async () => {
+    const periodText = getPeriodText({ viewType, yearPeriod, selectedMonth, selectedYear });
+    const groupSuffix = selectedGroup === 'all' ? '전체' : selectedGroup;
+    const titleText = `${periodText} ${groupSuffix} 결석/공결 사유`;
+    const fileName = generateFileName({ selectedYear, viewType, yearPeriod, selectedMonth, selectedGroup })
+      .replace('출석부_', '결석공결사유_');
+    await downloadAbsenceReasonExcel(getAbsenceReasonData(), titleText, fileName);
   };
 
   // 부서별 월별 통계 계산 함수 추가
@@ -1113,6 +1129,7 @@ function Statistics() {
                   onClick={() => {
                     setViewType('year');
                     setYearPeriod('q1');
+                    setShowGroupMonthlyStats(false);
                   }}
                   className={yearPeriod === 'q1' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q1' ? selectedButtonStyle : customButtonStyle}
@@ -1124,6 +1141,7 @@ function Statistics() {
                   onClick={() => {
                     setViewType('year');
                     setYearPeriod('q2');
+                    setShowGroupMonthlyStats(false);
                   }}
                   className={yearPeriod === 'q2' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q2' ? selectedButtonStyle : customButtonStyle}
@@ -1135,6 +1153,7 @@ function Statistics() {
                   onClick={() => {
                     setViewType('year');
                     setYearPeriod('q3');
+                    setShowGroupMonthlyStats(false);
                   }}
                   className={yearPeriod === 'q3' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q3' ? selectedButtonStyle : customButtonStyle}
@@ -1146,6 +1165,7 @@ function Statistics() {
                   onClick={() => {
                     setViewType('year');
                     setYearPeriod('q4');
+                    setShowGroupMonthlyStats(false);
                   }}
                   className={yearPeriod === 'q4' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={yearPeriod === 'q4' ? selectedButtonStyle : customButtonStyle}
@@ -1161,6 +1181,7 @@ function Statistics() {
                   onClick={() => {
                     setViewType('month');
                     setShowGroupQuarterlyStats(false);
+                    setShowGroupMonthlyStats(false);
                   }}
                   className={viewType === 'month' ? 'bg-black text-white hover:bg-gray-800 cursor-pointer' : 'cursor-pointer'}
                   style={viewType === 'month' ? selectedButtonStyle : customButtonStyle}
@@ -1212,7 +1233,11 @@ function Statistics() {
                 <Button
                   type="default"
                   onClick={() => {
-                    if (viewType === 'month') {
+                    const isActive = showGroupMonthlyStats || showGroupQuarterlyStats;
+                    if (isActive) {
+                      setShowGroupMonthlyStats(false);
+                      setShowGroupQuarterlyStats(false);
+                    } else if (viewType === 'month') {
                       setShowGroupMonthlyStats(true);
                       setShowGroupQuarterlyStats(false);
                     } else {
@@ -1550,6 +1575,15 @@ function Statistics() {
                     style={absenceSortType === 'excused' ? selectedButtonStyle : customButtonStyle}
                   >
                     공결 많은 순
+                  </Button>
+                  <Button
+                    type="default"
+                    icon={<DownloadOutlined />}
+                    onClick={handleAbsenceReasonExcelDownload}
+                    style={customButtonStyle}
+                    className="cursor-pointer"
+                  >
+                    엑셀 다운로드
                   </Button>
                 </Space>
               </div>

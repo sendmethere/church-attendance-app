@@ -12,3 +12,4 @@ WHERE tags && ARRAY['중창A', '중창B', '중창C'];
 -- Verification query (optional - comment out if not needed)
 -- SELECT id, name, tags FROM members WHERE tags IS NOT NULL AND array_length(tags, 1) > 0;
 
+

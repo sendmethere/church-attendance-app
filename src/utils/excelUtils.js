@@ -1,146 +1,219 @@
-import { utils as xlsxUtils, writeFile } from 'xlsx';
+import ExcelJS from 'exceljs';
 
 /**
- * 테이블 데이터를 엑셀 형식으로 변환
- * @param {Array} tableData - 테이블 데이터
- * @returns {Array} - 엑셀용 데이터 배열
+ * 기간 텍스트 생성 (타이틀용)
  */
-const convertTableDataToExcel = (tableData) => {
-  if (!tableData || tableData.length === 0) return [];
-
-  // 날짜 관련 컬럼들을 찾습니다 (키가 '_am', '_pm', '_event'로 끝나는 컬럼들)
-  const dateColumns = Object.keys(tableData[0]).filter(key => {
-    if (!key.endsWith('_am') && !key.endsWith('_pm') && !key.endsWith('_event')) {
-      return false;
-    }
-    
-    // 날짜 부분 추출 (예: '2025-01-05_am' -> '2025-01-05')
-    const dateStr = key.substring(0, key.lastIndexOf('_'));
-    
-    // 날짜 형식 검증 (YYYY-MM-DD)
-    if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return false;
-    }
-    
-    const [, month, day] = dateStr.split('-');
-    const monthNum = parseInt(month);
-    const dayNum = parseInt(day);
-    
-    // 유효한 날짜인지 확인
-    return monthNum > 0 && monthNum <= 12 && dayNum > 0 && dayNum <= 31;
-  });
-
-  // 엑셀 헤더 생성
-  const headers = [
-    '그룹',
-    '이름',
-    '출석',
-    '결석',
-    '공결',
-    // 날짜 컬럼들 추가
-    ...dateColumns.map(col => {
-      const lastUnderscoreIndex = col.lastIndexOf('_');
-      const date = col.substring(0, lastUnderscoreIndex);
-      const type = col.substring(lastUnderscoreIndex + 1);
-      const [, month, day] = date.split('-');
-      const typeText = type === 'am' ? '오전' : type === 'pm' ? '오후' : '행사';
-      return `${parseInt(month)}/${parseInt(day)} ${typeText}`;
-    })
-  ];
-
-  // 엑셀 데이터 생성
-  const excelData = tableData.map(record => {
-    const row = [
-      record.group,
-      record.name,
-      record.presentCount,
-      record.absentCount,
-      record.excusedCount,
-    ];
-
-    // 날짜별 출석 데이터 추가
-    dateColumns.forEach(col => {
-      let value = record[col];
-      
-      // total 행과 attendanceRate 행 처리
-      if (record.key === 'total' || record.key === 'attendanceRate') {
-        row.push(value);
-      } else {
-        // 일반 행의 출석 상태 변환
-        // value가 객체인 경우 (예: { status: 'present', reason: '...' })
-        const status = typeof value === 'object' && value !== null ? value.status : value;
-        
-        switch (status) {
-          case 'present':
-            value = '○';
-            break;
-          case 'absent':
-            value = '×';
-            break;
-          case 'excused':
-            value = '△';
-            break;
-          default:
-            value = '';
-        }
-        row.push(value);
-      }
-    });
-
-    return row;
-  });
-
-  return [headers, ...excelData];
+const getPeriodText = ({ viewType, yearPeriod, selectedMonth, selectedYear }) => {
+  if (viewType === 'month') return `${selectedYear}년 ${selectedMonth}월`;
+  const suffixMap = {
+    first: ' 상반기', second: ' 하반기',
+    q1: ' 1분기', q2: ' 2분기', q3: ' 3분기', q4: ' 4분기',
+  };
+  return `${selectedYear}년${suffixMap[yearPeriod] || ''}`;
 };
 
 /**
- * 엑셀 파일 생성 및 다운로드
- * @param {Array} data - 변환된 엑셀 데이터
- * @param {string} fileName - 파일 이름
+ * 출석 컬럼 목록 추출 (이벤트 타입 필터 적용)
  */
-const downloadExcel = (data, fileName) => {
-  const wb = xlsxUtils.book_new();
-  // aoa_to_sheet를 사용하여 배열 데이터를 직접 시트로 변환
-  const ws = xlsxUtils.aoa_to_sheet(data);
+const getDateColumns = (tableData, selectedEventType) => {
+  if (!tableData || tableData.length === 0) return [];
+  return Object.keys(tableData[0]).filter(key => {
+    if (!key.endsWith('_am') && !key.endsWith('_pm') && !key.endsWith('_event')) return false;
+    if (selectedEventType !== 'all') {
+      const type = key.substring(key.lastIndexOf('_') + 1);
+      if (type !== selectedEventType) return false;
+    }
+    const dateStr = key.substring(0, key.lastIndexOf('_'));
+    if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+    const [, month, day] = dateStr.split('-');
+    return parseInt(month) > 0 && parseInt(month) <= 12 && parseInt(day) > 0 && parseInt(day) <= 31;
+  });
+};
 
-  // 열 너비 설정
-  const colWidths = {
-    A: 10, // 그룹
-    B: 12, // 이름
-    C: 8,  // 출석
-    D: 8,  // 결석
-    E: 8,  // 공결
-  };
-  ws['!cols'] = Object.keys(colWidths).map(key => ({ wch: colWidths[key] }));
+/**
+ * 워크북에 시트 추가
+ */
+const addAttendanceSheet = (wb, sheetName, tableData, selectedEventType, titleText) => {
+  if (!tableData || tableData.length === 0) return;
 
-  xlsxUtils.book_append_sheet(wb, ws, '출석부');
-  writeFile(wb, fileName);
+  const dateColumns = getDateColumns(tableData, selectedEventType);
+  const totalCols = 5 + dateColumns.length;
+  const ws = wb.addWorksheet(sheetName);
+
+  // 타이틀 행
+  ws.addRow([titleText]);
+  const titleRow = ws.getRow(1);
+  titleRow.getCell(1).font = { bold: true, size: 18 };
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  titleRow.height = 34;
+  if (totalCols > 1) ws.mergeCells(1, 1, 1, totalCols);
+
+  // 헤더 행
+  const headers = [
+    '그룹', '이름', '출석', '결석', '공결',
+    ...dateColumns.map(col => {
+      const lastIdx = col.lastIndexOf('_');
+      const date = col.substring(0, lastIdx);
+      const type = col.substring(lastIdx + 1);
+      const [, month, day] = date.split('-');
+      const typeText = type === 'am' ? '오전' : type === 'pm' ? '오후' : '행사';
+      return `${parseInt(month)}/${parseInt(day)} ${typeText}`;
+    }),
+  ];
+  ws.addRow(headers);
+  const headerRow = ws.getRow(2);
+  headerRow.font = { bold: true };
+  headerRow.eachCell(cell => {
+    cell.alignment = { horizontal: 'center' };
+    cell.border = { bottom: { style: 'thin' } };
+  });
+
+  // 데이터 행
+  tableData.forEach(record => {
+    const row = [
+      record.group ?? '',
+      record.name ?? '',
+      record.presentCount ?? '',
+      record.absentCount ?? '',
+      record.excusedCount ?? '',
+    ];
+
+    dateColumns.forEach(col => {
+      const value = record[col];
+      if (record.key === 'total') {
+        row.push(
+          typeof value === 'object' && value !== null
+            ? `${value.present}/${value.absent}/${value.excused}`
+            : (value ?? '')
+        );
+      } else if (record.key === 'attendanceRate') {
+        row.push(value != null ? `${value}%` : '');
+      } else {
+        const status = typeof value === 'object' && value !== null ? value.status : value;
+        switch (status) {
+          case 'present': row.push('○'); break;
+          case 'absent':  row.push('×'); break;
+          case 'excused': row.push('△'); break;
+          default:        row.push('');
+        }
+      }
+    });
+
+    const dataRow = ws.addRow(row);
+    dataRow.eachCell(cell => { cell.alignment = { horizontal: 'center' }; });
+  });
+
+  // 열 너비
+  ws.getColumn(1).width = 10;
+  ws.getColumn(2).width = 12;
+  ws.getColumn(3).width = 7;
+  ws.getColumn(4).width = 7;
+  ws.getColumn(5).width = 7;
+  for (let i = 6; i <= totalCols; i++) ws.getColumn(i).width = 9;
+};
+
+/**
+ * 출석부 엑셀 다운로드 (전체 + 파트별 멀티 시트)
+ * @param {Array} sheets - [{ sheetName, tableData, selectedEventType, titleText }]
+ * @param {string} fileName
+ */
+const downloadExcel = async (sheets, fileName) => {
+  const wb = new ExcelJS.Workbook();
+  sheets.forEach(({ sheetName, tableData, selectedEventType, titleText }) => {
+    addAttendanceSheet(wb, sheetName, tableData, selectedEventType, titleText);
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 /**
  * 파일 이름 생성
- * @param {Object} params - 파일 이름 생성에 필요한 파라미터
- * @returns {string} - 생성된 파일 이름
  */
 const generateFileName = ({ selectedYear, viewType, yearPeriod, selectedMonth, selectedGroup }) => {
   const groupPrefix = selectedGroup === 'all' ? '' : `${selectedGroup}_`;
+  const suffixMap = {
+    first: '_상반기', second: '_하반기',
+    q1: '_1분기', q2: '_2분기', q3: '_3분기', q4: '_4분기',
+  };
   const periodSuffix = viewType === 'year'
-    ? yearPeriod === 'first'
-      ? '_상반기'
-      : yearPeriod === 'second'
-        ? '_하반기'
-        : yearPeriod === 'q1'
-          ? '_1분기'
-          : yearPeriod === 'q2'
-            ? '_2분기'
-            : yearPeriod === 'q3'
-              ? '_3분기'
-              : yearPeriod === 'q4'
-                ? '_4분기'
-                : ''
+    ? (suffixMap[yearPeriod] || '')
     : `_${selectedMonth}월`;
-
   return `${groupPrefix}출석부_${selectedYear}년${periodSuffix}.xlsx`;
 };
 
-export { convertTableDataToExcel, downloadExcel, generateFileName }; 
+/**
+ * 결석/공결 사유 엑셀 다운로드
+ * @param {Array} absenceData - getAbsenceReasonData() 결과
+ * @param {string} titleText - 시트 상단 타이틀
+ * @param {string} fileName
+ */
+const downloadAbsenceReasonExcel = async (absenceData, titleText, fileName) => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('결석공결사유');
+
+  const totalCols = 4;
+
+  // 타이틀 행
+  ws.addRow([titleText]);
+  const titleRow = ws.getRow(1);
+  titleRow.getCell(1).font = { bold: true, size: 18 };
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  titleRow.height = 34;
+  ws.mergeCells(1, 1, 1, totalCols);
+
+  // 헤더 행
+  ws.addRow(['그룹', '이름 (결석/공결)', '결석 내역', '공결 내역']);
+  const headerRow = ws.getRow(2);
+  headerRow.font = { bold: true };
+  headerRow.eachCell(cell => {
+    cell.alignment = { horizontal: 'center' };
+    cell.border = { bottom: { style: 'thin' } };
+  });
+
+  // 데이터 행
+  absenceData.forEach(record => {
+    const fmt = (entry) => {
+      const typeText = entry.eventType === 'am' ? '오전' : entry.eventType === 'pm' ? '오후' : '행사';
+      return `${entry.date} (${typeText}): ${entry.reason}`;
+    };
+    const absenceText = record.absences.map(fmt).join('\n');
+    const excusedText = record.excused.map(fmt).join('\n');
+
+    const dataRow = ws.addRow([
+      record.group,
+      `${record.name} (${record.absences.length}/${record.excused.length})`,
+      absenceText,
+      excusedText,
+    ]);
+    dataRow.eachCell(cell => {
+      cell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+    });
+  });
+
+  ws.getColumn(1).width = 10;
+  ws.getColumn(2).width = 16;
+  ws.getColumn(3).width = 48;
+  ws.getColumn(4).width = 48;
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export { getPeriodText, downloadExcel, generateFileName, downloadAbsenceReasonExcel };
