@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import db from '../firebase';
-import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import { getDefaultSunday, isValidDate, getSundayFromDate } from '../utils/dateUtils';
 
 const AttendanceManagement = () => {
@@ -834,6 +834,10 @@ const AttendanceManagement = () => {
         return;
       }
 
+      if (!window.confirm(
+        `명부 기준으로 이 날짜 출석부를 맞춥니다.\n\n추가 ${changes.added.length}명\n파트·태그 변경 ${changes.updated.length}명\n제거 ${changes.removed.length}명\n\n반영할까요?`
+      )) return;
+
       // 5. 출석부 리스트 업데이트
       let updatedList = [...currentAttendanceData.list];
 
@@ -1072,133 +1076,117 @@ const AttendanceManagement = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center pt-4 pb-6 sm:pb-6">
-      <h1 className="text-lg sm:text-xl font-bold text-gray-800">전주교회 찬양대</h1>
+      <h1 className="text-lg sm:text-xl font-bold text-gray-800 mb-3">전주교회 찬양대</h1>
       {!isInitialized ? (
         <div className="w-full max-w-4xl px-2 sm:px-4 flex justify-center items-center h-64">
           <p className="text-gray-600">로딩 중...</p>
         </div>
       ) : (
       <div className="w-full max-w-4xl px-2 sm:px-4">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4 sm:mb-0 w-full sm:w-auto">
-            <div className="flex items-center justify-center w-full sm:w-auto space-x-2">
-              <button 
-                onClick={moveToPreviousSunday}
-                disabled={availableDates.indexOf(date) <= 0}
-                className={`p-1 sm:p-2 rounded-full transition-colors ${
-                  availableDates.indexOf(date) <= 0
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : 'hover:bg-gray-200 text-gray-600'
-                }`}
-              >
-                <ChevronLeftIcon className="h-4 w-4 sm:h-6 sm:w-6" />
-              </button>
+        <div className="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6 space-y-3">
+          <div className="flex items-center justify-center gap-1 sm:gap-2">
+            <button
+              onClick={moveToPreviousSunday}
+              disabled={availableDates.indexOf(date) <= 0}
+              className={`h-10 w-10 flex items-center justify-center rounded-full transition-colors ${
+                availableDates.indexOf(date) <= 0
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
 
-              <div className="flex items-center space-x-1">
-                <input
-                  type="text"
-                  value={yearInput}
-                  onChange={(e) => setYearInput(e.target.value)}
-                  className="w-14 px-1 py-1 text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-                  placeholder="년"
-                />
-                <span className="text-gray-600">년</span>
-                <input
-                  type="text"
-                  value={monthInput}
-                  onChange={(e) => setMonthInput(e.target.value)}
-                  className="w-10 px-1 py-1 text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-                  placeholder="월"
-                />
-                <span className="text-gray-600">월</span>
-                <input
-                  type="text"
-                  value={dayInput}
-                  onChange={(e) => setDayInput(e.target.value)}
-                  className="w-10 px-1 py-1 text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-                  placeholder="일"
-                />
-                <span className="text-gray-600">일</span>
-                <span className="text-gray-600"> ({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })})</span>
-              </div>
-
-              <button 
-                onClick={moveToNextSunday}
-                disabled={availableDates.indexOf(date) >= availableDates.length - 1}
-                className={`p-1 sm:p-2 rounded-full transition-colors ${
-                  availableDates.indexOf(date) >= availableDates.length - 1
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : 'hover:bg-gray-200 text-gray-600'
-                }`}
-              >
-                <ChevronRightIcon className="h-4 w-4 sm:h-6 sm:w-6" />
-              </button>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <input type="text" inputMode="numeric" value={yearInput} onChange={(e) => setYearInput(e.target.value)}
+                className="w-16 h-10 text-center text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="년" />
+              <span>년</span>
+              <input type="text" inputMode="numeric" value={monthInput} onChange={(e) => setMonthInput(e.target.value)}
+                className="w-12 h-10 text-center text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="월" />
+              <span>월</span>
+              <input type="text" inputMode="numeric" value={dayInput} onChange={(e) => setDayInput(e.target.value)}
+                className="w-12 h-10 text-center text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="일" />
+              <span>일</span>
+              <span className="ml-1 font-semibold text-gray-700">({new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' })})</span>
             </div>
 
-            <div className="flex items-center justify-center w-full sm:w-auto space-x-2">
-              <div className="flex rounded-lg shadow-sm">
-                <button
-                  className={`px-4 py-2 text-sm font-semibold rounded-l-md ${
-                    timeOfDay === 'am'
-                      ? 'bg-black text-white'
-                      : availableEvents.am
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                  onClick={() => setTimeOfDay('am')}
-                  disabled={!availableEvents.am}
-                >
-                  오전
-                </button>
-                <button
-                  className={`px-4 py-2 text-sm font-semibold ${
-                    timeOfDay === 'pm'
-                      ? 'bg-black text-white'
-                      : availableEvents.pm
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                  onClick={() => setTimeOfDay('pm')}
-                  disabled={!availableEvents.pm}
-                >
-                  오후
-                </button>
-                <button
-                  className={`px-4 py-2 text-sm font-semibold rounded-r-md ${
-                    timeOfDay === 'event'
-                      ? 'bg-black text-white'
-                      : availableEvents.event
-                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                  onClick={() => setTimeOfDay('event')}
-                  disabled={!availableEvents.event}
-                >
-                  행사
-                </button>
-              </div>
-
-              <button
-                onClick={handleDateSearch}
-                className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
-              >
-                조회
-              </button>
-            </div>
+            <button
+              onClick={moveToNextSunday}
+              disabled={availableDates.indexOf(date) >= availableDates.length - 1}
+              className={`h-10 w-10 flex items-center justify-center rounded-full transition-colors ${
+                availableDates.indexOf(date) >= availableDates.length - 1
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 p-1 bg-gray-100 rounded-lg">
+              <button
+                className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${
+                  timeOfDay === 'am'
+                    ? 'bg-white text-gray-900 shadow'
+                    : availableEvents.am
+                    ? 'text-gray-500 hover:text-gray-700'
+                    : 'text-gray-300 cursor-not-allowed'
+                }`}
+                onClick={() => setTimeOfDay('am')}
+                disabled={!availableEvents.am}
+              >
+                오전
+              </button>
+              <button
+                className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${
+                  timeOfDay === 'pm'
+                    ? 'bg-white text-gray-900 shadow'
+                    : availableEvents.pm
+                    ? 'text-gray-500 hover:text-gray-700'
+                    : 'text-gray-300 cursor-not-allowed'
+                }`}
+                onClick={() => setTimeOfDay('pm')}
+                disabled={!availableEvents.pm}
+              >
+                오후
+              </button>
+              <button
+                className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${
+                  timeOfDay === 'event'
+                    ? 'bg-white text-gray-900 shadow'
+                    : availableEvents.event
+                    ? 'text-gray-500 hover:text-gray-700'
+                    : 'text-gray-300 cursor-not-allowed'
+                }`}
+                onClick={() => setTimeOfDay('event')}
+                disabled={!availableEvents.event}
+              >
+                행사
+              </button>
+            </div>
+            <button
+              onClick={handleDateSearch}
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-black hover:bg-gray-800 active:scale-95 transition"
+            >
+              조회
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={syncMembers}
-              className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+              title="멤버 화면의 명부를 이 날짜 출석부에 반영 (추가·파트/태그 변경·퇴단 제거)"
+              className="inline-flex items-center gap-1 px-2 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
             >
-              멤버 동기화
+              <ArrowPathIcon className="h-4 w-4" />
+              명부 반영
             </button>
 
             {timeOfDay === 'pm' && (
               <button
                 onClick={applyMorningAttendance}
-                className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+                className="px-3.5 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 오전 출석 반영
               </button>
@@ -1208,11 +1196,9 @@ const AttendanceManagement = () => {
               <button
                 onClick={handleBulkUpdate}
                 disabled={isUpdating}
-                className={`px-4 py-2 rounded-lg text-sm sm:text-base font-semibold text-white 
-                  ${isUpdating 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-[#2cb67d] hover:bg-[#2cb67d] focus:ring-2 focus:ring-blue-300'
-                  } transition-colors`}
+                className={`ml-auto px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  isUpdating ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#2cb67d] hover:opacity-90'
+                } transition`}
               >
                 {isUpdating ? '업데이트 중...' : '변경사항 저장'}
               </button>
