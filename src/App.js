@@ -11,7 +11,21 @@ import Notice from './pages/Notice';
 import TagManagement from './pages/TagManagement';
 import Navbar from './pages/Navbar';
 import { useLocation } from 'react-router-dom';
+import { ConfigProvider } from 'antd';
 import 'antd/dist/reset.css';
+
+const antdTheme = {
+  token: {
+    colorPrimary: '#2383e2',
+    colorText: '#37352f',
+    borderRadius: 6,
+    fontFamily: '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif',
+  },
+  components: {
+    Table: { headerBg: '#37352f', headerColor: '#ffffff', headerSortActiveBg: '#2f2d29', headerSortHoverBg: '#2f2d29', borderColor: '#e9e9e7', rowHoverBg: '#f7f6f3' },
+    Button: { primaryShadow: 'none', defaultShadow: 'none' },
+  },
+};
 
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
@@ -60,6 +74,7 @@ function App() {
   }, []);
 
   return (
+    <ConfigProvider theme={antdTheme}>
     <Router>
       <NavbarWrapper>
         <Routes>
@@ -103,6 +118,7 @@ function App() {
         </Routes>
       </NavbarWrapper>
     </Router>
+    </ConfigProvider>
   );
 }
 

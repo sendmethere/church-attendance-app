@@ -258,7 +258,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* 전체 컨테이너 */}
         <div className="bg-white rounded-lg shadow-md p-6">

@@ -292,7 +292,7 @@ const MemberManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="w-full">
         <div className="flex flex-col sm:flex-row justify-center items-center mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">찬양대 명부 관리</h1>

@@ -22,7 +22,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-md hide-on-print">
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-200 hide-on-print">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between h-12">
           <div className="flex">
@@ -34,13 +34,13 @@ const Navbar = () => {
               />
             </div>
             
-            <div className="flex space-x-8 ml-0 sm:ml-8">
+            <div className="flex space-x-1 ml-0 sm:ml-6">
               <Link
                 to="/dashboard"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/dashboard')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">홈</span>
@@ -48,10 +48,10 @@ const Navbar = () => {
 
               <Link
                 to="/attendance"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/attendance')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">출석</span>
@@ -59,10 +59,10 @@ const Navbar = () => {
 
               <Link
                 to="/members"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/members')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">멤버</span>
@@ -70,10 +70,10 @@ const Navbar = () => {
 
               <Link
                 to="/statistics"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/statistics')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">통계</span>
@@ -81,20 +81,20 @@ const Navbar = () => {
 
               <Link
                 to="/events"
-                className={`hidden sm:inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`hidden sm:inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/events')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">일정</span>
               </Link>
               <Link
                 to="/tags"
-                className={`hidden sm:inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                className={`hidden sm:inline-flex items-center px-2.5 my-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive('/tags')
-                    ? 'border-blue-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <span className="text-xs">태그</span>

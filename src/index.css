@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background: #f7f6f3;
+  color: #37352f;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* 인쇄 모드에서 특정 요소 숨기기 */
 @media print {
     .hide-on-print {

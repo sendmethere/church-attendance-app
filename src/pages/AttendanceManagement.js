@@ -1071,7 +1071,7 @@ const AttendanceManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center pt-4 pb-6 sm:pb-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center pt-4 pb-6 sm:pb-6">
       <h1 className="text-lg sm:text-xl font-bold text-gray-800">전주교회 찬양대</h1>
       {!isInitialized ? (
         <div className="w-full max-w-4xl px-2 sm:px-4 flex justify-center items-center h-64">
@@ -1138,7 +1138,7 @@ const AttendanceManagement = () => {
             <div className="flex items-center justify-center w-full sm:w-auto space-x-2">
               <div className="flex rounded-lg shadow-sm">
                 <button
-                  className={`px-3 py-1 text-xs font-semibold rounded-l-md ${
+                  className={`px-4 py-2 text-sm font-semibold rounded-l-md ${
                     timeOfDay === 'am'
                       ? 'bg-black text-white'
                       : availableEvents.am
@@ -1151,7 +1151,7 @@ const AttendanceManagement = () => {
                   오전
                 </button>
                 <button
-                  className={`px-3 py-1 text-xs font-semibold ${
+                  className={`px-4 py-2 text-sm font-semibold ${
                     timeOfDay === 'pm'
                       ? 'bg-black text-white'
                       : availableEvents.pm
@@ -1164,7 +1164,7 @@ const AttendanceManagement = () => {
                   오후
                 </button>
                 <button
-                  className={`px-3 py-1 text-xs font-semibold rounded-r-md ${
+                  className={`px-4 py-2 text-sm font-semibold rounded-r-md ${
                     timeOfDay === 'event'
                       ? 'bg-black text-white'
                       : availableEvents.event
@@ -1180,7 +1180,7 @@ const AttendanceManagement = () => {
 
               <button
                 onClick={handleDateSearch}
-                className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
+                className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 focus:ring-2 transition-colors"
               >
                 조회
               </button>
@@ -1190,7 +1190,7 @@ const AttendanceManagement = () => {
           <div className="flex space-x-2">
             <button
               onClick={syncMembers}
-              className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+              className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
             >
               멤버 동기화
             </button>
@@ -1198,7 +1198,7 @@ const AttendanceManagement = () => {
             {timeOfDay === 'pm' && (
               <button
                 onClick={applyMorningAttendance}
-                className="px-3 py-1 rounded-md text-xs font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
+                className="px-3.5 py-2 rounded-md text-sm font-semibold text-white bg-black hover:bg-gray-800 transition-colors"
               >
                 오전 출석 반영
               </button>
@@ -1464,7 +1464,7 @@ const AttendanceManagement = () => {
                 </thead>
                 <tbody>
                   {filteredMembers.map((member) => (
-                    <tr key={member.id} className="border-b hover:bg-gray-100">
+                    <tr key={member.id} className={`border-b ${member.status === 'absent' ? 'bg-red-50' : member.status === 'excused' ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
                       <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
                       <td className={`${groupFilter !== 'all' || tagFilter !== 'all' ? 'hidden sm:table-cell' : ''} px-4 py-2 whitespace-nowrap`}>
                         <div className="flex flex-wrap gap-1">
@@ -1481,8 +1481,8 @@ const AttendanceManagement = () => {
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-center space-x-1 sm:space-x-2">
+                      <td className="px-2 sm:px-4 py-2">
+                        <div className="flex justify-center gap-1.5 sm:gap-2">
                           {[
                             { status: 'present', label: '출석', shortLabel: '출' },
                             { status: 'absent', label: '결석', shortLabel: '결' },
@@ -1491,14 +1491,14 @@ const AttendanceManagement = () => {
                             <button
                               key={status}
                               onClick={() => updateAttendance(member.id, status, member.reason)}
-                              className={`px-2 sm:px-3 py-1 rounded-lg shadow-md focus:outline-none focus:ring text-xs sm:text-sm ${
+                              className={`w-11 h-11 sm:w-auto sm:h-auto sm:px-4 sm:py-1.5 rounded-lg text-base sm:text-sm font-bold transition active:scale-95 focus:outline-none ${
                                 member.status === status
                                   ? status === 'present'
-                                    ? 'bg-[#2cb67d] text-white focus:ring-[#2cb67d]'
+                                    ? 'bg-[#2cb67d] text-white shadow-md'
                                     : status === 'absent'
-                                    ? 'bg-[#ff4f5e] text-white focus:ring-[#ff4f5e]'
-                                    : 'bg-[#f5b841] text-white focus:ring-[#f5b841]'
-                                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                                    ? 'bg-[#ff4f5e] text-white shadow-md'
+                                    : 'bg-[#f5b841] text-white shadow-md'
+                                  : 'bg-white text-gray-400 border border-gray-300 hover:bg-gray-50'
                               }`}
                             >
                               <span className="hidden sm:inline">{label}</span>
@@ -1512,7 +1512,7 @@ const AttendanceManagement = () => {
                           type="text"
                           value={member.reason || ''}
                           onChange={(e) => handleReasonChange(member.id, e.target.value)}
-                          className={`w-full px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300 ${
+                          className={`w-full px-2 sm:px-3 py-2 sm:py-1 text-base sm:text-sm border rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300 ${
                             member.status === 'present'
                               ? 'bg-gray-100 cursor-not-allowed'
                               : 'bg-white'

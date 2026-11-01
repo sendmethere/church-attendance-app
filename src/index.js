@@ -2,7 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { Chart } from 'chart.js';
 import reportWebVitals from './reportWebVitals';
+
+Chart.defaults.font.family = '"Pretendard Variable", Pretendard, -apple-system, sans-serif';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

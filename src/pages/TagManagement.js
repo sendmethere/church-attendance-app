@@ -125,7 +125,7 @@ const TagManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="w-full max-w-4xl mx-auto">
         {/* 경고 메시지 */}
         <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">

@@ -271,7 +271,7 @@ function Events() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6 sm:py-10">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-6 sm:py-10">
       <div className="w-full max-w-4xl px-2 sm:px-4">
         {/* 경고 메시지 박스 추가 */}
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
