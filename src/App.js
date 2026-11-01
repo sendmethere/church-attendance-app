@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import supabase from './supabaseClient';
+import db from './firebase';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import MemberManagement from './pages/MemberManagement';
@@ -19,13 +19,13 @@ function ProtectedRoute({ children }) {
 
   useEffect(() => {
     // 현재 세션 체크
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    db.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     // 인증 상태 변경 구독
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = db.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });

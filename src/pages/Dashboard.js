@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 import { getDefaultSunday } from '../utils/dateUtils';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
@@ -63,7 +63,7 @@ const Dashboard = () => {
 
   // 태그 가져오기
   const fetchTags = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('tags')
       .select('*')
       .order('created_at', { ascending: true });
@@ -80,7 +80,7 @@ const Dashboard = () => {
   const fetchMemberStats = async () => {
     const formattedDate = new Date(currentDate).toISOString().split('T')[0];
     
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('members')
       .select('*')
       .lte('join_date', formattedDate)
@@ -193,7 +193,7 @@ const Dashboard = () => {
     const formattedDate = new Date(currentDate).toISOString().split('T')[0];
 
     // 오전 데이터 가져오기
-    const { data: amEvents, error: amError } = await supabase
+    const { data: amEvents, error: amError } = await db
       .from('events')
       .select('*')
       .eq('date', formattedDate)
@@ -225,7 +225,7 @@ const Dashboard = () => {
     }
 
     // 오후 데이터 가져오기
-    const { data: pmEvents, error: pmError } = await supabase
+    const { data: pmEvents, error: pmError } = await db
       .from('events')
       .select('*')
       .eq('date', formattedDate)

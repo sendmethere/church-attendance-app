@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 import logo from '../logo.svg';
 
 const Navbar = () => {
@@ -13,7 +13,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await db.auth.signOut();
       if (error) throw error;
       navigate('/login');
     } catch (error) {

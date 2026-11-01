@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabaseClient';
+import db from '../firebase';
 
 function Events() {
   const [events, setEvents] = useState([]);
@@ -18,7 +18,7 @@ function Events() {
   // 사용 가능한 연도 목록 가져오기
   const fetchAvailableYears = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('events')
         .select('date');
       
@@ -43,7 +43,7 @@ function Events() {
   // 각 이벤트의 출석 정보 조회
   const fetchAttendanceCounts = async (eventId) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('events')
         .select('attendance_data')
         .eq('id', eventId)
@@ -73,7 +73,7 @@ function Events() {
       const startDate = `${selectedYear}-01-01`;
       const endDate = `${selectedYear}-12-31`;
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('events')
         .select('*')
         .gte('date', startDate)
@@ -132,7 +132,7 @@ function Events() {
       const formattedDate = new Date(formData.date).toISOString();
       
       // 현재 최대 ID 값을 조회
-      const { data: maxIdData, error: maxIdError } = await supabase
+      const { data: maxIdData, error: maxIdError } = await db
         .from('events')
         .select('id')
         .order('id', { ascending: false })
@@ -143,7 +143,7 @@ function Events() {
       // 새로운 ID 생성 (현재 최대값 + 1)
       const newId = maxIdData.length > 0 ? maxIdData[0].id + 1 : 1;
       
-      const { error } = await supabase
+      const { error } = await db
         .from('events')
         .insert({
           id: newId,
@@ -170,7 +170,7 @@ function Events() {
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('events')
         .update({ 
           name: formData.name,
@@ -196,7 +196,7 @@ function Events() {
   const handleDelete = async (id) => {
     if (window.confirm('정말로 이 이벤트를 삭제하시겠습니까?')) {
       try {
-        const { error } = await supabase
+        const { error } = await db
           .from('events')
           .delete()
           .eq('id', id);
@@ -214,7 +214,7 @@ function Events() {
   const handleResetAttendance = async (eventId) => {
     if (window.confirm('정말로 이 이벤트의 출석 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
       try {
-        const { error } = await supabase
+        const { error } = await db
           .from('events')
           .update({ 
             attendance_data: null  // attendance_data를 null로 설정

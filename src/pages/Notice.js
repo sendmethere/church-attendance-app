@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 import { Modal, Button, Form, Input, DatePicker } from 'antd';
 import moment from 'moment';
 
@@ -17,7 +17,7 @@ const Notice = () => {
 
   const fetchNotices = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('notices')
         .select('*')
         .eq('is_displayed', true)
@@ -32,7 +32,7 @@ const Notice = () => {
 
   const handleCreate = async (values) => {
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('notices')
         .insert([{
           title: values.title,
@@ -53,7 +53,7 @@ const Notice = () => {
 
   const handleUpdate = async (values) => {
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('notices')
         .update({
           title: values.title,
@@ -76,7 +76,7 @@ const Notice = () => {
   const handleDelete = async (id) => {
     if (window.confirm('정말로 이 공지사항을 삭제하시겠습니까?')) {
       try {
-        const { error } = await supabase
+        const { error } = await db
           .from('notices')
           .update({ is_displayed: false })
           .eq('id', id);

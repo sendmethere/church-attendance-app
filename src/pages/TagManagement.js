@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 
 const TagManagement = () => {
   const [tags, setTags] = useState([]);
@@ -19,7 +19,7 @@ const TagManagement = () => {
   }, []);
 
   const fetchTags = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('tags')
       .select('*')
       .order('created_at', { ascending: true });
@@ -40,7 +40,7 @@ const TagManagement = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tags')
         .insert([{ 
           name: newTagName.trim(),
@@ -70,7 +70,7 @@ const TagManagement = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('tags')
         .update({ 
           name: editTagName.trim(),
@@ -105,7 +105,7 @@ const TagManagement = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('tags')
         .delete()
         .eq('id', editingTag.id);

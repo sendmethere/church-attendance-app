@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 import { Table, Typography, ConfigProvider, Select, Space, Button, Tooltip, Input } from 'antd';
 import { getPeriodText, downloadExcel, generateFileName, downloadAbsenceReasonExcel } from '../utils/excelUtils';
 import { DownloadOutlined, SearchOutlined } from '@ant-design/icons';
@@ -162,13 +162,13 @@ function Statistics() {
       endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     }
 
-    const { data: membersData } = await supabase
+    const { data: membersData } = await db
       .from('members')
       .select('*')
       .lte('join_date', endDate)
       .or(`out_date.gt.${startDate},out_date.is.null`);
 
-    const { data: eventsData } = await supabase
+    const { data: eventsData } = await db
       .from('events')
       .select('*')
       .gte('date', startDate)

@@ -1,85 +1,64 @@
-# Getting Started with Create React App
+# 전주교회 찬양대 출석 관리 시스템
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+찬양대 단원의 주일 출석(오전·오후 예배, 행사)을 기록하고, 결석·공결 사유와 기간별 통계를 확인하며, 출석부를 엑셀로 내려받는 웹앱이다. 로그인한 관리자만 사용한다.
 
-## Available Scripts
+## 주요 기능
 
-In the project directory, you can run:
+| 화면 (경로) | 하단 메뉴 | 내용 |
+|---|---|---|
+| 로그인 (`/`) | | Firebase 이메일 로그인. 이후 모든 화면은 로그인 상태에서만 접근 |
+| 홈 (`/dashboard`) | 홈 | 단원 현황, 오전·오후 출석/결석/공결 도넛 차트, 결석자 목록과 결석사유 모아보기, 출석 일정표 |
+| 출석 (`/attendance`) | 출석 | 날짜·예배(오전/오후/행사)별 출석 체크. 단원 상태는 출석, 결석, 공결 세 가지이며 사유를 적을 수 있음 |
+| 멤버 (`/members`) | 멤버 | 단원 명부 추가·수정·삭제. 파트(소프라노, 알토, 테너, 베이스, 기악부, 기타)와 태그 필터 |
+| 통계 (`/statistics`) | 통계 | 월·분기·반기·연 단위 출석부 표, 파트별 집계, 결석/공결 사유 조회 |
+| 일정 (`/events`) | 일정 | 예배·행사 일정 등록과 연도별 조회, 일정별 출석 인원 |
+| 태그 (`/tags`) | 태그 | 중창A·B·C, 엘벧엘 같은 소모임 태그 관리(이름, 약칭) |
+| 공지 (`/notice`) | | 공지사항 작성·수정 |
 
-### `npm start`
+통계 화면에서 전체 또는 파트별 출석부와 결석/공결 사유표를 `.xlsx`로 내려받는다(`src/utils/excelUtils.js`, ExcelJS).
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 기술 스택
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- React 19 (Create React App), React Router 7
+- UI: Ant Design 5, Tailwind CSS 3, Heroicons
+- 차트: Chart.js + react-chartjs-2
+- 상태: Zustand (단원 목록)
+- 백엔드: Firebase (Authentication + Firestore). 별도 서버 없이 브라우저에서 직접 호출
+- 배포: Netlify (`netlify.toml`, `public/_redirects`)
 
-### `npm test`
+## 데이터 구조 (Firestore)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| 컬렉션 | 용도 |
+|---|---|
+| `members` | 단원 명부(이름, 파트, 태그, 입단·퇴단일). 문서 ID는 숫자 id |
+| `events` | 날짜와 `event_type`(am/pm/event)별 한 문서. 출석 상태와 사유는 `attendance_data` 필드 |
+| `tags` | 소모임 태그(`name`, `abbreviation`) |
+| `notices` | 공지사항 |
 
-### `npm run build`
+로그인한 사용자만 읽고 쓴다(`firestore.rules`). 페이지 코드는 Supabase 문법(`db.from().select().eq()`)을 그대로 쓰고, `src/firebase.js`가 이를 Firestore 호출로 바꿔 준다. 이 호환층은 필터를 메모리에서 적용하므로 데이터가 수만 건 규모가 되면 쿼리를 Firestore 네이티브로 옮긴다.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Supabase에서 Firebase로 이전했다(2026-11-01). 이전 스크립트와 SQL은 git 기록에 있다.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 폴더 구조
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+src/
+  App.js            라우팅, 로그인 보호(ProtectedRoute)
+  pages/            화면별 컴포넌트 (AttendanceManagement, Statistics, Dashboard 등)
+  store/            Zustand 스토어
+  utils/            dateUtils, excelUtils
+  firebase.js       Firebase 초기화 + Supabase 문법 호환층
+firestore.rules     Firestore 보안 규칙
+```
 
-### `npm run eject`
+## 실행
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+npm install
+npm start        # http://localhost:3000
+npm run build    # build/ 로 정적 빌드
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 알려진 정리 대상
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-
-## Supabase Migrations
-
-태그 관리 기능을 위해 `tags` 테이블이 필요합니다. Supabase 대시보드의 SQL Editor에서 아래 파일을 순서대로 실행하세요:
-
-1. `supabase_migrations/create_tags_table.sql` - tags 테이블 생성 및 기본 데이터
-2. `supabase_migrations/add_abbreviation_to_tags.sql` - 기존 테이블에 약어 컬럼 추가 (이미 테이블이 있는 경우)
-
-또는 직접 SQL을 실행하세요:
-1. Supabase 프로젝트 대시보드 접속
-2. SQL Editor 메뉴 선택
-3. 위 파일들의 내용을 순서대로 복사해서 실행
-
-# church-attendance-app
-
+- 큰 파일: `Statistics.js`(약 1,700줄), `AttendanceManagement.js`(약 1,600줄).

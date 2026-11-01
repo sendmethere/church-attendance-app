@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 
 const MemberManagement = () => {
   const [members, setMembers] = useState([]);
@@ -41,7 +41,7 @@ const MemberManagement = () => {
   }, []);
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('members')
       .select('*');
 
@@ -66,7 +66,7 @@ const MemberManagement = () => {
   };
 
   const fetchTags = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('tags')
       .select('*')
       .order('created_at', { ascending: true });
@@ -143,7 +143,7 @@ const MemberManagement = () => {
   const handleUpdateDates = async () => {
     setIsUpdating(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('members')
         .update({
           join_date: editDate.join_date,
@@ -176,7 +176,7 @@ const MemberManagement = () => {
   const handleUpdateGroup = async (member, newGroup) => {
     setIsGroupUpdating(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('members')
         .update({ group: newGroup })
         .eq('id', member.id);
@@ -203,7 +203,7 @@ const MemberManagement = () => {
 
     setIsAdding(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('members')
         .insert([{
           name: newMember.name,
@@ -242,7 +242,7 @@ const MemberManagement = () => {
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('members')
         .delete()
         .eq('id', editingMember.id);
@@ -263,7 +263,7 @@ const MemberManagement = () => {
   const handleUpdateTags = async (member, newTags) => {
     setIsUpdating(true);
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('members')
         .update({ tags: newTags })
         .eq('id', member.id);

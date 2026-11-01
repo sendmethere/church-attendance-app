@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { getDefaultSunday, isValidDate, getSundayFromDate } from '../utils/dateUtils';
 
@@ -83,7 +83,7 @@ const AttendanceManagement = () => {
 
   // 초기 날짜 설정 - 오늘과 가장 가까운 날짜로 (과거/미래 구분 없이)
   const initializeDate = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('events')
       .select('date')
       .order('date', { ascending: false });
@@ -135,7 +135,7 @@ const AttendanceManagement = () => {
   };
 
   const fetchTags = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('tags')
       .select('*')
       .order('created_at', { ascending: true });
@@ -151,7 +151,7 @@ const AttendanceManagement = () => {
   const fetchMembers = async () => {
     const formattedDate = new Date(date).toISOString().split('T')[0];
     
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('members')
       .select('*')
       .lte('join_date', formattedDate)
@@ -187,7 +187,7 @@ const AttendanceManagement = () => {
     console.log('Fetching attendance for date:', formattedDate);
 
     // 해당 날짜의 이벤트 확인
-    const { data: events } = await supabase
+    const { data: events } = await db
       .from('events')
       .select('*')
       .eq('date', formattedDate);
@@ -239,7 +239,7 @@ const AttendanceManagement = () => {
     // 1. 해당 날짜에 활동 중인 멤버 목록 조회
     // - join_date가 현재 날짜보다 이전이고
     // - out_date가 현재 날짜보다 이후이거나 null인 멤버들을 가져옴
-    const { data: memberData, error: memberError } = await supabase
+    const { data: memberData, error: memberError } = await db
       .from('members')
       .select('*')
       .lte('join_date', formattedDate)
@@ -299,7 +299,7 @@ const AttendanceManagement = () => {
     // 4. 데이터베이스에 출석 데이터 업데이트
     // - 해당 날짜와 이벤트 타입(오전/오후/행사)에 맞는 레코드 업데이트
     // - updated_at 필드에 현재 시간(한국 시간) 기록
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('events')
       .update({
         attendance_data: defaultData,
@@ -371,7 +371,7 @@ const AttendanceManagement = () => {
     const eventType = timeOfDay;
 
     try {
-      const { data: currentData, error: fetchError } = await supabase
+      const { data: currentData, error: fetchError } = await db
         .from('events')
         .select('*')
         .eq('date', formattedDate)
@@ -414,7 +414,7 @@ const AttendanceManagement = () => {
       console.log('Updated attendance data to save:', updatedAttendanceData);
 
       // 4. 업데이트 요청 수정
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('events')
         .update({
           attendance_data: updatedAttendanceData,
@@ -583,7 +583,7 @@ const AttendanceManagement = () => {
 
   // 사용 가능한 날짜들을 가져오는 함수 추가
   const fetchAvailableDates = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('events')
       .select('date')
       .order('date', { ascending: false }); // 내림차순으로 변경
@@ -691,7 +691,7 @@ const AttendanceManagement = () => {
 
   // checkAndSetEventType 함수 수정
   const checkAndSetEventType = async (targetDate) => {
-    const { data: events } = await supabase
+    const { data: events } = await db
       .from('events')
       .select('*')
       .eq('date', targetDate);
@@ -737,7 +737,7 @@ const AttendanceManagement = () => {
 
     try {
       // 1. 현재 활동 중인 멤버 목록 가져오기
-      const { data: membersData, error: memberError } = await supabase
+      const { data: membersData, error: memberError } = await db
         .from('members')
         .select('*')
         .lte('join_date', formattedDate)
@@ -762,7 +762,7 @@ const AttendanceManagement = () => {
       });
 
       // 2. 현재 출석부 데이터 가져오기
-      const { data: currentAttendance, error: attendanceError } = await supabase
+      const { data: currentAttendance, error: attendanceError } = await db
         .from('events')
         .select('*')
         .eq('date', formattedDate)
@@ -875,7 +875,7 @@ const AttendanceManagement = () => {
       };
 
       // 7. 데이터베이스 업데이트
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('events')
         .update({
           attendance_data: updatedAttendanceData,
@@ -920,7 +920,7 @@ const AttendanceManagement = () => {
 
     try {
       // 같은 날짜의 오전 출석 데이터 가져오기
-      const { data: morningData, error: morningError } = await supabase
+      const { data: morningData, error: morningError } = await db
         .from('events')
         .select('*')
         .eq('date', formattedDate)

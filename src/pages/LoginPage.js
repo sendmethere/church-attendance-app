@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../supabaseClient';
+import db from '../firebase';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ function LoginPage() {
   useEffect(() => {
     // 현재 로그인된 세션 확인
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await db.auth.getSession();
       if (session) {
         navigate('/attendance');
       }
@@ -21,7 +21,7 @@ function LoginPage() {
   }, [navigate]);
 
   const handleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await db.auth.signInWithPassword({
       email,
       password,
     });
